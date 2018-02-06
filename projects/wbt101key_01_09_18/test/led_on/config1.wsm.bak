@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<platform name="generic">
+<SuperMuxConfig name="C:\Users\Greg\Documents\WICED-Studio-6.1\20719-B1_Bluetooth\platforms\CYW920719Q40EVB_01\SuperMuxConfig.wst" />
+<gpios>
+<gpio name="GPIO_P00" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P01" >
+<controls>
+<control name="GPIO_PIN_OUTPUT" setting="GPIO_PIN_OUTPUT_LOW" />
+<control name="GPIO_TRIGGER_POLARITY" setting="GPIO_TRIGGER_NEG" />
+<control name="GPIO_INTERRUPT" setting="GPIO_INTERRUPT_ENABLE" />
+</controls>
+</gpio>
+<gpio name="GPIO_P02" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P03" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P04" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P05" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P06" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P07" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P08" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P09" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P10" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P11" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P12" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P13" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P14" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P15" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P16" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P17" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P33" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P18" >
+<controls>
+</controls>
+</gpio>
+<gpio name="GPIO_P19" >
+<controls>
+</controls>
+</gpio>
+</gpios>
+<functions>
+<function name="GPIO" EditedName="GPIO_1" editable="yes" codegen="yes" >
+<Signals>
+<signal name="GPIO" gpio="GPIO_P01" />
+</Signals>
+</function>
+<function name="GPIO" EditedName="GPIO_2" editable="yes" codegen="yes" >
+<Signals>
+<signal name="GPIO" gpio="GPIO_P09" />
+</Signals>
+</function>
+<function name="GPIO" EditedName="GPIO_3" editable="yes" codegen="yes" >
+<Signals>
+<signal name="GPIO" gpio="GPIO_P10" />
+</Signals>
+</function>
+<function name="GPIO" EditedName="GPIO_4" editable="yes" codegen="yes" >
+<Signals>
+<signal name="GPIO" gpio="GPIO_P16" />
+</Signals>
+</function>
+<function name="GPIO" EditedName="GPIO_5" editable="yes" codegen="yes" >
+<Signals>
+<signal name="GPIO" gpio="GPIO_P17" />
+</Signals>
+</function>
+<function name="GPIO" EditedName="GPIO_6" editable="yes" codegen="yes" >
+<Signals>
+<signal name="GPIO" />
+</Signals>
+</function>
+<function name="GPIO" EditedName="GPIO_7" editable="yes" codegen="yes" >
+<Signals>
+<signal name="GPIO" />
+</Signals>
+</function>
+<function name="I2C" EditedName="I2C_1" editable="no" codegen="no" >
+<Signals>
+<signal name="SCL" gpio="GPIO_P08" />
+<signal name="SDA" gpio="GPIO_P07" />
+</Signals>
+</function>
+<function name="I2C" EditedName="I2C_2" editable="no" codegen="no" >
+<Signals>
+<signal name="SCL" gpio="GPIO_P15" />
+<signal name="SDA" gpio="GPIO_P14" />
+</Signals>
+</function>
+<function name="PCM" EditedName="PCM" editable="no" codegen="no" >
+<Signals>
+<signal name="CLK" gpio="GPIO_P06" />
+<signal name="SYNC" gpio="GPIO_P02" />
+<signal name="OUT" gpio="GPIO_P11" />
+<signal name="IN" gpio="GPIO_P12" />
+</Signals>
+</function>
+<function name="UART" EditedName="PUART" editable="no" codegen="no" >
+<Signals>
+<signal name="TXD" gpio="GPIO_P33" />
+<signal name="RXD" />
+<signal name="CTS" />
+<signal name="RTS" />
+</Signals>
+</function>
+<function name="SWD" EditedName="SWD" editable="no" codegen="no" >
+<Signals>
+<signal name="CK" />
+<signal name="IO" gpio="GPIO_P00" />
+</Signals>
+</function>
+<function name="UART" EditedName="UART_2" editable="no" codegen="no" >
+<Signals>
+<signal name="TXD" gpio="GPIO_P13" />
+<signal name="RXD" gpio="GPIO_P03" />
+<signal name="CTS" gpio="GPIO_P05" />
+<signal name="RTS" gpio="GPIO_P04" />
+</Signals>
+</function>
+</functions>
+</platform>

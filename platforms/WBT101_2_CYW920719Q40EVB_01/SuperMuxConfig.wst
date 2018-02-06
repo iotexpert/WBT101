@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<platform name="generic">
+	<controls>
+		<control name="GPIO_PIN_OUTPUT" lhs= ".default_state">
+			<setting name="GPIO_PIN_OUTPUT_LOW" />
+			<setting name="GPIO_PIN_OUTPUT_HIGH" />
+		</control>
+		<control name="GPIO_TRIGGER" mask="GPIO_EDGE_TRIGGER_MASK" lhs=".config">
+			<setting name="GPIO_EDGE_TRIGGER" />
+			<setting name="GPIO_LEVEL_TRIGGER" />
+		</control>
+		<control name="GPIO_TRIGGER_POLARITY" mask="0x0002" lhs=".config">
+			<setting name="none" />
+			<setting name="GPIO_TRIGGER_NEG" />
+		</control>
+		<control name="GPIO_TRIGGER_DUAL" mask="GPIO_DUAL_EDGE_TRIGGER_MASK" lhs=".config">
+			<setting name="GPIO_EDGE_TRIGGER_BOTH" />
+			<setting name="GPIO_EDGE_TRIGGER_SINGLE" />
+		</control>
+		<control name="GPIO_INTERRUPT" mask="GPIO_INTERRUPT_ENABLE_MASK" lhs=".config">
+			<setting name="GPIO_INTERRUPT_ENABLE" />
+			<setting name="GPIO_INTERRUPT_DISABLE" />
+		</control>
+		<control name="GPIO_INTERRUPT_EN" mask="GPIO_EN_INT_MASK" lhs=".config">
+			<setting name="GPIO_EN_INT_LEVEL_HIGH" />
+			<setting name="GPIO_EN_INT_LEVEL_LOW" />
+			<setting name="GPIO_EN_INT_RISING_EDGE" />
+			<setting name="GPIO_EN_INT_FALING_EDGE" />
+			<setting name="GPIO_EN_INT_BOTH_EDGE" />
+		</control>
+		<control name="GPIO_CONTROL" mask="GPIO_OUTPUT_FN_SEL_MASK" lhs=".config">
+			<setting name="GPIO_INPUT_ENABLE" />
+			<setting name="GPIO_OUTPUT_DISABLE" />
+			<setting name="GPIO_OUTPUT_ENABLE" />
+			<setting name="GPIO_KS_OUTPUT_ENABLE" />
+		</control>
+		<control name="GPIO_GLOBAL_INPUT" mask="GPIO_GLOBAL_INPUT_DISABLE" lhs=".config">
+			<setting name="GPIO_GLOBAL_INPUT_ENABLE" />
+			<setting name="GPIO_GLOBAL_INPUT_DISABLE" />
+		</control>
+		<control name="GPIO_PULL" mask="GPIO_INPUT_DISABLE" lhs=".config">
+			<setting name="GPIO_PULL_DOWN_NONE" />
+			<setting name="GPIO_PULL_UP" />
+			<setting name="GPIO_PULL_DOWN" />
+			<setting name="GPIO_INPUT_DISABLE" />
+		</control>
+		<control name="GPIO_DRIVE" mask="GPIO_DRIVE_SEL_MASK" lhs=".config">
+			<setting name="GPIO_DRIVE_LOWEST" />
+			<setting name="GPIO_DRIVE_MIDDLE_0" />
+			<setting name="GPIO_DRIVE_MIDDLE_1" />
+			<setting name="GPIO_DRIVE_HIGHEST" />
+		</control>
+		<control name="GPIO_HYSTERESIS" mask="GPIO_HYSTERESIS_MASK" lhs=".config">
+			<setting name="GPIO_HYSTERESIS_OFF" />
+			<setting name="GPIO_HYSTERESIS_ON" />
+		</control>
+	</controls>
+	<gpios prologue="wiced_platform_gpio_t platform_gpio_pins[]=\n\t{\n"
+			epilogue="\t};\n"
+			prefix="PLATFORM_GPIO_" 
+			preassigned="WICED_GPIO"
+			formatter="\t\t[%s]\t= {%s, %s},\n"  num_arg="3" >
+		<gpio name="GPIO_P00" preassigned="WICED_SWD_IO" enabled="yes" />
+		<gpio name="GPIO_P01" preassigned="WICED_GPIO" enabled="yes" />
+		<gpio name="GPIO_P02" preassigned="WICED_PCM_SYNC_I2S_WS" enabled="yes" />
+		<gpio name="GPIO_P03" preassigned="WICED_UART_2_RXD" enabled="yes" />
+		<gpio name="GPIO_P04" preassigned="WICED_UART_2_RTS" enabled="yes" />
+		<gpio name="GPIO_P05" preassigned="WICED_UART_2_CTS" enabled="yes" />
+		<gpio name="GPIO_P06" preassigned="WICED_PCM_CLK_I2S_CLK" enabled="yes" />
+		<gpio name="GPIO_P07" preassigned="WICED_I2C_1_SDA" enabled="yes" />
+		<gpio name="GPIO_P08" preassigned="WICED_I2C_1_SCL" enabled="yes" />
+		<gpio name="GPIO_P09" preassigned="WICED_GPIO" enabled="yes" />
+		<gpio name="GPIO_P10" preassigned="WICED_GPIO" enabled="yes" />
+		<gpio name="GPIO_P11" preassigned="WICED_PCM_OUT_I2S_DO" enabled="yes" />
+		<gpio name="GPIO_P12" preassigned="WICED_PCM_IN_I2S_DI" enabled="yes" />
+		<gpio name="GPIO_P13" preassigned="WICED_UART_2_TXD" enabled="yes" />
+		<gpio name="GPIO_P14" preassigned="WICED_I2C_2_SDA" enabled="yes" />
+		<gpio name="GPIO_P15" preassigned="WICED_I2C_2_SCL" enabled="yes" />
+		<gpio name="GPIO_P16" />
+		<gpio name="GPIO_P17" />
+		<gpio name="GPIO_P18" />
+		<gpio name="GPIO_P19" />
+		<gpio name="GPIO_P20" />
+		<gpio name="GPIO_P21" />
+		<gpio name="GPIO_P22" />
+		<gpio name="GPIO_P23" />
+		<gpio name="GPIO_P24" />
+		<gpio name="GPIO_P25" />
+		<gpio name="GPIO_P26" />
+		<gpio name="GPIO_P27" />
+		<gpio name="GPIO_P28" />
+		<gpio name="GPIO_P29" />
+		<gpio name="GPIO_P30" />
+		<gpio name="GPIO_P31" />
+		<gpio name="GPIO_P32" />
+		<gpio name="GPIO_P33" preassigned="WICED_PUART_TXD" enabled="yes" />
+		<gpio name="GPIO_P34" />
+		<gpio name="GPIO_P35" />
+		<gpio name="GPIO_P36" />
+		<gpio name="GPIO_P37" />
+		<gpio name="GPIO_P38" />
+		<gpio name="GPIO_P39" />
+	</gpios>
+	<templates>
+		<template name="platforms">
+			<line name="comment1" formatter="/*\n" num_arg="0" />
+			<line name="comment2" formatter=" * &#36; Copyright Cypress Semiconductor &#36;\n"  num_arg="0" />
+			<line name="comment3" formatter=" */\n\n"  num_arg="0" />
+			<line name="comment4" formatter="/*\n"  num_arg="0" />
+			<line name="comment5" formatter=" * This file is specific to this %s app only, the default pin configuration\n"  num_arg="1" argument="app_name" />
+			<line name="comment6" formatter=" * for this platform can be found in the platforms/%s/wiced_platform_pin_config.c\n"  num_arg="1"  argument="platform_name" />
+			<line name="comment7" formatter=" * Please note that its mandatory to name this file in the format &quot;%s_pin_config.c&quot;\n"  num_arg="1"  argument="app_name" />
+			<line name="comment8" formatter=" */\n\n"  num_arg="0" />
+			<line name="comment9" formatter="#include &quot;wiced_platform.h&quot;\n\n"  num_arg="0" />
+		</template>
+		<template name="gpios">
+			<prologue formatter="wiced_platform_gpio_config_t platform_gpio[WICED_PLATFORM_%s_MAX]=\n\t{\n"  num_arg="1"/>
+			<epilogue formatter="\t};\n"  num_arg="0"/>
+		</template>
+		<template name = "gpio">
+			<prologue formatter="\t\t[%s] =\n\t\t\t{\n" num_arg="1" />
+			<line name=".gpio" formatter="\t\t\t\t%s\t\t\t= &amp;platform_gpio_pins[%s].gpio_pin,\n" num_arg="2" />
+			<line name=".config" formatter="\t\t\t\t%s\t\t\t= (%s),\n" arguments="settings"  num_arg="2" />
+			<line name=".default_state" formatter="\t\t\t\t%s\t= %s,\n" arguments="GPIO_PIN_OUTPUT"  num_arg="2" />
+			<epilogue formatter="\t\t\t},\n" num_arg="0" />
+		</template>
+		<template name = "BUTTON">
+			<prologue formatter="\t\t[%s] =\n\t\t\t{\n" num_arg="1" />
+			<line name=".gpio" formatter="\t\t\t\t%s\t\t\t= &amp;platform_gpio_pins[%s].gpio_pin,\n" num_arg="2" />
+			<line name=".config" formatter="\t\t\t\t%s\t\t\t= (%s),\n" arguments="settings"  num_arg="2" />
+			<line name=".default_state" formatter="\t\t\t\t%s\t= %s,\n" arguments="GPIO_PIN_OUTPUT"  num_arg="2" />
+			<epilogue formatter="\t\t\t},\n" num_arg="0" />
+		</template>
+		<template name = "LED">
+			<prologue formatter="\t\t[%s] =\n\t\t\t{\n" num_arg="1" />
+			<line name=".gpio" formatter="\t\t\t\t%s\t\t\t= &amp;platform_gpio_pins[%s].gpio_pin,\n" num_arg="2" />
+			<line name=".config" formatter="\t\t\t\t%s\t\t\t= (%s),\n" arguments="settings"  num_arg="2" />
+			<line name=".default_state" formatter="\t\t\t\t%s\t= %s,\n" arguments="GPIO_PIN_OUTPUT"  num_arg="2" />
+			<epilogue formatter="\t\t\t},\n" num_arg="0" />
+		</template>
+		<template name="functions" prefix="WICED_PLATFORM_">
+			<prologue formatter="\n#define %s_MAX\t %d\n\n\nwiced_platform_%s_config_t platform_%s[%s_MAX]=\n\t{\n"  num_arg="5"/>
+			<epilogue formatter="\t};\n"  num_arg="0"/>
+		</template>
+		<template name = "function" >
+			<prologue formatter="\t\t[%s_%s] =\n\t\t\t{\n" num_arg="1"/>
+			<epilogue formatter="\t\t\t},\n" num_arg="0" />
+		</template>
+	</templates>
+	<functions>
+		<function name="I2C" max="3" enabled="yes">
+			<signals>
+				<signal name="SCL" />
+				<signal name="SDA" />
+			</signals>
+		</function>
+		<function name="SPI" max="3" enabled="yes">
+			<signals>
+				<signal name="CLK" />
+				<signal name="CS" />
+				<signal name="MOSI" />
+				<signal name="MISO" />
+				<signal name="IO2" />
+				<signal name="IO3" />
+				<signal name="INT" />
+			</signals>
+		</function>
+		<function name="UART" max="2" enabled="yes">
+			<signals>
+				<signal name="TXD" />
+				<signal name="RXD" />
+				<signal name="CTS" />
+				<signal name="RTS" />
+			</signals>
+		</function>
+		<function name="PCM" max="1" enabled="yes">
+			<signals>
+				<signal name="CLK" />
+				<signal name="SYNC" />
+				<signal name="OUT" />
+				<signal name="IN" />
+			</signals>
+		</function>
+		<function name="I2S (Master)" max="1" enabled="yes">
+			<signals>
+				<signal name="MASTER_CLK" />
+				<signal name="MASTER_WS" />
+				<signal name="MASTER_DO" />
+				<signal name="MASTER_DI" />
+			</signals>
+		</function>
+		<function name="I2S (Slave)" max="1" enabled="yes">
+			<signals>
+				<signal name="SLAVE_CLK" />
+				<signal name="SLAVE_WS" />
+				<signal name="SLAVE_DO" />
+				<signal name="SLAVE_DI" />
+			</signals>
+		</function>
+		<function name="SWD" max="1" enabled="yes">
+			<signals>
+				<signal name="CK" />
+				<signal name="IO" />
+			</signals>
+		</function>
+		<function name="AO" max="1" enabled="yes">
+			<signals>
+				<signal name="A_0" />
+				<signal name="A_1" />
+				<signal name="A_2" />
+				<signal name="D_0" />
+			</signals>
+		</function>
+		<function name="LED" max="2" enabled="yes" editable="no" codegen="yes">
+			<signals>
+				<signal name="GPIO" >
+					<control name="GPIO_PIN_OUTPUT" setting="GPIO_PIN_OUTPUT_HIGH" />
+					<control name="GPIO_CONTROL" setting="GPIO_OUTPUT_ENABLE" />
+					<control name="GPIO_PULL" setting="GPIO_PULL_UP" />
+				</signal>
+			</signals>
+		</function>
+		<function name="BUTTON" max="1" enabled="yes" editable="no" codegen="yes">
+			<signals>
+				<signal name="GPIO" >
+					<control name="GPIO_PIN_OUTPUT" setting="GPIO_PIN_OUTPUT_LOW" />
+					<control name="GPIO_CONTROL" setting="GPIO_INPUT_ENABLE" />
+					<control name="GPIO_PULL" setting="GPIO_PULL_DOWN" />
+				</signal>
+			</signals>
+		</function>
+		<function name="GPIO" max="40" enabled="yes" editable="yes" codegen="yes">
+			<signals>
+				<signal name="GPIO" >
+				</signal>
+			</signals>
+		</function>
+	</functions>
+</platform>
