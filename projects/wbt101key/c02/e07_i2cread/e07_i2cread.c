@@ -1,5 +1,6 @@
 /* Whenever the kit button is pressed, read button data from shield and display to the UART */
 
+#include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"

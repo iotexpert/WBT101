@@ -1,5 +1,6 @@
 /* Toggle the state of an LED when the button is pressed using a semaphore  */
 
+#include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"

@@ -1,6 +1,7 @@
 /* Blink an LED with a frequency of 2 Hz */
 /* Use WICED_BT_TRACE to print messages to the PUART */
 
+#include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"
@@ -24,8 +25,6 @@ void timer_cback( uint32_t arg );
 APPLICATION_START( )
 {
     /* Send DEBUG messages over the PUART */
-    /* Note - for these pins to be connected to the serial device you must set the following switches: */
-    /* SW5.1 OFF, SW5.2 ON, SW5.3 OFF, SW5.4 ON */
     wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
     wiced_bt_stack_init( bt_cback, NULL, NULL ); /* Register BT stack callback */
 }

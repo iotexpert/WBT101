@@ -1,5 +1,6 @@
 /* Blink an LED with a frequency of 2 Hz */
 
+#include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"

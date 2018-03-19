@@ -1,5 +1,6 @@
 /* Change a PWM duty cycle to change brightness of an LED */
 
+#include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"

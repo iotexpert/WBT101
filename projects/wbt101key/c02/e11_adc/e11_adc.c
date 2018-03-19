@@ -1,5 +1,6 @@
 /* Measure Ambient Light Sensor voltage and send to UART every 500ms */
 
+#include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"
