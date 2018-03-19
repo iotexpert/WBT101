@@ -3,6 +3,7 @@
  * so we will need a period of 1000ms and a duty cycle of 20%
  */
 
+#include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"

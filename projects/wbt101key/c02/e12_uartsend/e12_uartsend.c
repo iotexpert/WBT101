@@ -1,5 +1,6 @@
 /*Use a button interrupt to send data on the PUART */
 
+#include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"

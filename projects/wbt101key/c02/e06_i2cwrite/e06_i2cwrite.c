@@ -1,6 +1,7 @@
 /* Whenever the button is pressed, write data to cycle through the
  * CapSense LEDs on the shield board */
 
+#include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"
