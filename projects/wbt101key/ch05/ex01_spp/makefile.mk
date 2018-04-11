@@ -9,12 +9,10 @@ APP_SRC += wiced_bt_cfg.c
 C_FLAGS += -DWICED_BT_TRACE_ENABLE
 
 # If defined, HCI traces are sent over transport/WICED HCI interface
-##GJL Commented out C_FLAGS += -DHCI_TRACE_OVER_TRANSPORT
+#GJL
+#C_FLAGS += -DHCI_TRACE_OVER_TRANSPORT
 
-##GJL Copied from SPP app
-########################################################################
-# Component(s) needed
-########################################################################
+#GJL 
 $(NAME)_COMPONENTS := spp_lib.a
 
 ########################################################################
