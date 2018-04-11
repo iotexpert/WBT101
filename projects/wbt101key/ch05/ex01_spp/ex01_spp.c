@@ -4,7 +4,7 @@
  *
  */
 
-/** e01_spp.c
+/** ex01_spp.c
  *
  */
 
@@ -25,17 +25,9 @@
 #include "ex01_spp_sdp_db.h"
 #include "wiced_bt_cfg.h"
 
-//GJL ADD - also had to add library .a to the make file
+//GJL
 #include "wiced_bt_spp.h"
 #include "wiced_bt_sdp.h"
-//#include "wiced_bt_cfg.h"
-//#include "wiced_gki.h"
-//#include "wiced_hci.h"
-//#include "wiced_platform.h"
-//#include "wiced_memory.h"
-//GJL ADD END
-
-
 
 /*******************************************************************
  * Constant Definitions
@@ -51,32 +43,28 @@ extern const wiced_bt_cfg_buf_pool_t wiced_bt_cfg_buf_pools[WICED_BT_CFG_NUM_BUF
 // Transport pool for sending RFCOMM data to host
 static wiced_transport_buffer_pool_t* transport_pool = NULL;
 
-//GJL ADD
-#define SPP_RFCOMM_SCN                  1
-#define MAX_TX_BUFFER                       1017
-#define WICED_EIR_BUF_MAX_SIZE              264
-uint16_t                        spp_handle;
-//GJL ADD END
-
+//GJL
+uint16_t spp_handle;
 
 /*******************************************************************
  * Function Prototypes
  ******************************************************************/
-static void                  e01_spp_app_init            ( void );
-static wiced_bt_dev_status_t e01_spp_management_callback ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
-static void                  e01_spp_reset_device        ( void );
-static uint32_t              hci_control_process_rx_cmd  ( uint8_t* p_data, uint32_t len );
+static void                  ex01_spp_app_init            ( void );
+static wiced_bt_dev_status_t ex01_spp_management_callback ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
+static void                  ex01_spp_reset_device        ( void );
+static uint32_t              hci_control_process_rx_cmd   ( uint8_t* p_data, uint32_t len );
 #ifdef HCI_TRACE_OVER_TRANSPORT
-static void                  e01_spp_trace_callback      ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
+static void                  ex01_spp_trace_callback      ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
-//GJL ADD
-void app_write_eir(void);
-static void         spp_connection_up_callback(uint16_t handle, uint8_t* bda);
-static void         spp_connection_down_callback(uint16_t handle);
-static wiced_bool_t spp_rx_data_callback(uint16_t handle, uint8_t* p_data, uint32_t data_len);
-//GJL ADD END
 
-//GJL ADD
+//GJL START
+void spp_connection_up_callback(uint16_t handle, uint8_t* bda);
+void spp_connection_down_callback(uint16_t handle);
+wiced_bool_t spp_rx_data_callback(uint16_t handle, uint8_t* p_data, uint32_t data_len);
+
+#define SPP_RFCOMM_SCN                  1
+#define MAX_TX_BUFFER                       1017
+
 wiced_bt_spp_reg_t spp_reg =
 {
     SPP_RFCOMM_SCN,                     /* RFCOMM service channel number for SPP connection */
@@ -87,8 +75,7 @@ wiced_bt_spp_reg_t spp_reg =
     spp_connection_down_callback,       /* SPP connection disconnected */
     spp_rx_data_callback,               /* Data packet received */
 };
-//GJL ADD END
-
+//GJL END
 
 /*******************************************************************
  * Macro Definitions
@@ -138,28 +125,29 @@ void application_start(void)
     //  wiced_set_debug_uart( WICED_ROUTE_DEBUG_NONE );
 
     /* Set Debug UART as WICED_ROUTE_DEBUG_TO_PUART to see debug traces on Peripheral UART (PUART) */
-    wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART ); //GJL Change
+    //GJL
+    wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
 
     /* Set the Debug UART as WICED_ROUTE_DEBUG_TO_WICED_UART to send debug strings over the WICED debug interface */
-    //GJL Change wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_WICED_UART );
+    //GJL
+    //wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_WICED_UART );
 #endif
 
     /* Initialize Bluetooth Controller and Host Stack */
-    wiced_bt_stack_init(e01_spp_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
+    wiced_bt_stack_init(ex01_spp_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
 }
 
 /*
  * This function is executed in the BTM_ENABLED_EVT management callback.
  */
-void e01_spp_app_init(void)
+void ex01_spp_app_init(void)
 {
-    /* Initialize Application */
-    wiced_bt_app_init();
-
-    //GJL ADD
-    app_write_eir();
+    //GJL
     wiced_bt_spp_startup(&spp_reg);
-    //GJL ADD END
+
+    /* Initialize Application */
+    //GJL - not needed
+    //wiced_bt_app_init();
 
     /* Initialize SDP Database */
     wiced_bt_sdp_db_init( (uint8_t*)sdp_database, sdp_database_len );
@@ -179,7 +167,7 @@ void e01_spp_app_init(void)
 }
 
 /* TODO: This function should be called when the device needs to be reset */
-void e01_spp_reset_device( void )
+void ex01_spp_reset_device( void )
 {
     /* TODO: Clear any additional persistent values used by the application from NVRAM */
 
@@ -188,16 +176,12 @@ void e01_spp_reset_device( void )
 }
 
 /* Bluetooth Management Event Handler */
-wiced_bt_dev_status_t e01_spp_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
+wiced_bt_dev_status_t ex01_spp_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
     wiced_bt_dev_status_t status = WICED_BT_SUCCESS;
     wiced_bt_device_address_t bda = { 0 };
     wiced_bt_dev_br_edr_pairing_info_t *p_br_edr_info = NULL;
     wiced_bt_ble_advert_mode_t *p_adv_mode = NULL;
-
-    //GJL ADD
-    uint8_t pincode[4] = { 0x30, 0x30, 0x30, 0x30 };
-
 
     switch (event)
     {
@@ -208,7 +192,7 @@ wiced_bt_dev_status_t e01_spp_management_callback( wiced_bt_management_evt_t eve
         // There is a virtual HCI interface between upper layers of the stack and
         // the controller portion of the chip with lower layers of the BT stack.
         // Register with the stack to receive all HCI commands, events and data.
-        wiced_bt_dev_register_hci_trace(e01_spp_trace_callback);
+        wiced_bt_dev_register_hci_trace(ex01_spp_trace_callback);
 #endif
 
         WICED_BT_TRACE("Bluetooth Enabled (%s)\n",
@@ -221,41 +205,26 @@ wiced_bt_dev_status_t e01_spp_management_callback( wiced_bt_management_evt_t eve
             WICED_BT_TRACE("Local Bluetooth Address: [%B]\n", bda);
 
             /* Perform application-specific initialization */
-            e01_spp_app_init();
+            ex01_spp_app_init();
         }
         break;
     case BTM_DISABLED_EVT:
         /* Bluetooth Controller and Host Stack Disabled */
         WICED_BT_TRACE("Bluetooth Disabled\n");
         break;
-
-        //GJL ADD
-    case BTM_PIN_REQUEST_EVT:
-         WICED_BT_TRACE("remote address= %B\n", p_event_data->pin_request.bd_addr);
-         wiced_bt_dev_pin_code_reply(*p_event_data->pin_request.bd_addr,WICED_BT_SUCCESS,4, &pincode[0]);
-         break;
-
     case BTM_SECURITY_REQUEST_EVT:
         /* Security Request */
         WICED_BT_TRACE("Security Request\n");
         wiced_bt_ble_security_grant(p_event_data->security_request.bd_addr, WICED_BT_SUCCESS);
         break;
-
     case BTM_PAIRING_IO_CAPABILITIES_BR_EDR_REQUEST_EVT:
         /* Request for Pairing IO Capabilities (BR/EDR) */
         WICED_BT_TRACE("BR/EDR Pairing IO Capabilities Request\n");
         p_event_data->pairing_io_capabilities_br_edr_request.oob_data = BTM_OOB_NONE;
-        //GJL ADD
+        p_event_data->pairing_io_capabilities_br_edr_request.auth_req = BTM_AUTH_SINGLE_PROFILE_GENERAL_BONDING_YES;
+        p_event_data->pairing_io_capabilities_br_edr_request.is_orig = WICED_FALSE;
+        //GJL - add the next line if you don't want to require user to confirm key value
         p_event_data->pairing_io_capabilities_br_edr_request.local_io_cap   = BTM_IO_CAPABILITIES_NONE;
-        //GJL EXPERIMENT
-        //p_event_data->pairing_io_capabilities_br_edr_request.auth_req       = BTM_AUTH_SINGLE_PROFILE_GENERAL_BONDING_NO;
-        //p_event_data->pairing_io_capabilities_br_edr_request.auth_req = BTM_AUTH_SINGLE_PROFILE_GENERAL_BONDING_YES;
-        //p_event_data->pairing_io_capabilities_br_edr_request.auth_req = BTM_AUTH_SINGLE_PROFILE_NO;
-        p_event_data->pairing_io_capabilities_br_edr_request.auth_req = BTM_AUTH_SINGLE_PROFILE_YES;
-
-        //GJL ADD END
-        //GJL REMOVE
-        //p_event_data->pairing_io_capabilities_br_edr_request.is_orig = WICED_FALSE;
         break;
     case BTM_PAIRING_COMPLETE_EVT:
         /* Pairing is Complete */
@@ -271,7 +240,7 @@ wiced_bt_dev_status_t e01_spp_management_callback( wiced_bt_management_evt_t eve
         WICED_BT_TRACE("Paired Device Link Request Keys Event\n");
         /* Device/app-specific TODO: HANDLE PAIRED DEVICE LINK REQUEST KEY - retrieve from NVRAM, etc */
 #if 0
-        if (e01_spp_read_link_keys( &p_event_data->paired_device_link_keys_request ))
+        if (ex01_spp_read_link_keys( &p_event_data->paired_device_link_keys_request ))
         {
             WICED_BT_TRACE("Key Retrieval Success\n");
         }
@@ -343,89 +312,26 @@ uint32_t hci_control_process_rx_cmd( uint8_t* p_data, uint32_t len )
 
 #ifdef HCI_TRACE_OVER_TRANSPORT
 /* Handle Sending of Trace over the Transport */
-void e01_spp_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
+void ex01_spp_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
 {
     wiced_transport_send_hci_trace( transport_pool, type, length, p_data );
 }
 #endif
 
-
-
-//GJL ADD from spp.c
-/*
- * SPP connection up callback
- */
+//GJL START
 void spp_connection_up_callback(uint16_t handle, uint8_t* bda)
 {
-    WICED_BT_TRACE("%s handle:%d address:%B\n", __FUNCTION__, handle, bda);
     spp_handle = handle;
 }
 
-/*
- * SPP connection down callback
- */
 void spp_connection_down_callback(uint16_t handle)
 {
-    WICED_BT_TRACE("%s handle:%d\n", __FUNCTION__, handle);
     spp_handle = 0;
 }
 
-/*
- * Process data received over EA session.  Return TRUE if we were able to allocate buffer to
- * deliver to the host.
- */
 wiced_bool_t spp_rx_data_callback(uint16_t handle, uint8_t* p_data, uint32_t data_len)
 {
-    int i;
-    WICED_BT_TRACE("%s handle:%d len:%d %02x-%02x\n", __FUNCTION__, handle, data_len, p_data[0], p_data[data_len - 1]);
-
-    // Loop back received data to the host
     wiced_bt_spp_send_session_data(handle, p_data, data_len);
     return WICED_TRUE;
 }
-
-/*
- *  Prepare extended inquiry response data.  Current version publishes device name and 16bit
- *  SPP service.
- */
-void app_write_eir(void)
-{
-    uint8_t *pBuf;
-    uint8_t *p;
-    uint8_t length;
-    uint16_t eir_length;
-
-    pBuf = (uint8_t *)wiced_bt_get_buffer(WICED_EIR_BUF_MAX_SIZE);
-    WICED_BT_TRACE("hci_control_write_eir %x\n", pBuf);
-
-    if (!pBuf)
-    {
-        WICED_BT_TRACE("app_write_eir %x\n", pBuf);
-        return;
-    }
-
-    p = pBuf;
-
-    length = strlen((char *)wiced_bt_cfg_settings.device_name);
-
-    *p++ = length + 1;
-    *p++ = BT_EIR_COMPLETE_LOCAL_NAME_TYPE;        // EIR type full name
-    memcpy(p, wiced_bt_cfg_settings.device_name, length);
-    p += length;
-
-    *p++ = 2 + 1;                                   // Length of 16 bit services
-    *p++ = BT_EIR_COMPLETE_16BITS_UUID_TYPE;        // 0x03 EIR type full list of 16 bit service UUIDs
-    *p++ = UUID_SERVCLASS_SERIAL_PORT & 0xff;
-    *p++ = (UUID_SERVCLASS_SERIAL_PORT >> 8) & 0xff;
-
-    *p++ = 0;                                       // end of EIR Data is 0
-
-    eir_length = (uint16_t) (p - pBuf);
-
-    // print EIR data
-    wiced_bt_trace_array("EIR :", pBuf, MIN(p-pBuf, 100));
-    wiced_bt_dev_write_eir(pBuf, eir_length);
-
-    return;
-}
-//GJL ADD END
+//GJL END

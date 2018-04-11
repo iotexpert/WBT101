@@ -4,7 +4,7 @@
  *
  */
 
-// e01_spp_sdp_db.c
+// ex01_spp_sdp_db.c
 
 #include "wiced_bt_uuid.h"
 #include "wiced_bt_sdp.h"

@@ -4,7 +4,7 @@
  *
  */
 
-// e01_spp_sdp_db.h
+// ex01_spp_sdp_db.h
 
 #ifndef __SDP_DATABASE_H__
 #define __SDP_DATABASE_H__
