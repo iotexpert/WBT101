@@ -1,47 +1,66 @@
-/* Blink an LED with a frequency of 2 Hz */
+/* Blink LED_1 with a frequency of 2 Hz */
 
 #include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"
-#include "wiced_timer.h"
+#include "wiced_rtos.h"
+
 
 /*****************************    Constants   *****************************/
-/* Timer will expire every 250ms so that the LED frequency will be 500ms = 2 Hz */
-#define TIMEOUT_IN_MS       (250)
+
+/* Thread will delay for 250ms so that LED frequency will be 500ms = 2 Hz */
+#define THREAD_DELAY_IN_MS          (250)
+
+/* Useful macros for thread priorities */
+#define PRIORITY_HIGH               (3)
+#define PRIORITY_MEDIUM             (5)
+#define PRIORITY_LOW                (7)
+
+/* Sensible stack size for most threads */
+#define THREAD_STACK_MIN_SIZE       (500)
+
 
 /*****************************    Variables   *****************************/
-wiced_timer_t ms_timer;               	/* timer structure */
+
 
 /*****************************    Function Prototypes   *******************/
-wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data);
-void timer_cback( uint32_t arg );
+
+wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
+void led_control( uint32_t arg );
 
 
 /*****************************    Functions   *****************************/
+
 /*  Main application. This just starts the BT stack and provides the callback function.
  *  The actual application initialization will happen when stack reports that BT device is ready. */
 APPLICATION_START( )
 {
-    wiced_bt_stack_init( bt_cback, NULL, NULL ); /* Register BT stack callback */
+    wiced_bt_stack_init( bt_cback, NULL, NULL );                    // Register BT stack callback
 }
 
 
 /* Callback function for Bluetooth events */
-wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data)
+wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
     wiced_result_t result = WICED_SUCCESS;
 
+    wiced_thread_t * led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
+
     switch( event )
     {
-        /* BlueTooth  stack enabled */
+        /* BlueTooth stack enabled */
         case BTM_ENABLED_EVT:
-            /* Start a timer to control LED blinking */
-            if ( wiced_init_timer(&ms_timer, &timer_cback, 0, WICED_MILLI_SECONDS_PERIODIC_TIMER ) == WICED_SUCCESS )
-			{
-				wiced_start_timer( &ms_timer, TIMEOUT_IN_MS );
-			}
+            /* Start a thread to control LED blinking */
+            wiced_rtos_init_thread(
+                    led_thread,                     // Thread handle
+                    PRIORITY_MEDIUM,                // Priority
+                    "Blinky",                       // Name
+                    led_control,                    // Function
+                    THREAD_STACK_MIN_SIZE,          // Stack
+                    NULL );                         // Function argument
             break;
+
         default:
             break;
     }
@@ -49,10 +68,17 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
 }
 
 
-/* The function invoked on timeout of the timer. */
-void timer_cback( uint32_t arg )
+/* Thread function to control the LED */
+void led_control( uint32_t arg )
 {
-	/* Read current set value for the LED pin and invert it */
-	wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, !wiced_hal_gpio_get_pin_output(WICED_GPIO_PIN_LED_1));
-}
+    uint32_t led;
 
+    for(;;)
+    {
+        led = wiced_hal_gpio_get_pin_output( WICED_GPIO_PIN_LED_1 );
+        wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, ! led );
+
+        /* Send the thread to sleep for a period of time */
+        wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );
+    }
+}

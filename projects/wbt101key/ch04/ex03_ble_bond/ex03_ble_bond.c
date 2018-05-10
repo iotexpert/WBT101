@@ -56,7 +56,7 @@ extern const wiced_bt_cfg_buf_pool_t wiced_bt_cfg_buf_pools[WICED_BT_CFG_NUM_BUF
 static wiced_transport_buffer_pool_t* transport_pool = NULL;
 
 uint16_t  connection_id;    // connection ID referenced by the stack
-BD_ADDR  remote_addr;      // remote device address
+BD_ADDR   remote_addr;      // remote device address
 
 /* Timer structure used to periodically read data from the shield over I2C */
 wiced_timer_t ms_timer;
@@ -189,6 +189,8 @@ void e03_ble_bond_app_init(void)
     wiced_bt_device_link_keys_t link_keys;
     uint8_t                     *p;
 
+    hostinfo.characteristic_client_configuration = 0; /* Start with notifications off */
+
     /* Initialize Application */
     wiced_bt_app_init();
 
@@ -208,6 +210,9 @@ void e03_ble_bond_app_init(void)
     /* Set Advertisement Data */
     e03_ble_bond_set_advertisement_data();
 
+    /* Allow peer to pair */
+    wiced_bt_set_pairable_mode(WICED_TRUE, 0);
+
     /* Load the address resolution DB with the keys stored in the NVRAM */
     /* If no client has connected previously, then this read will fail */
     memset( &link_keys, 0, sizeof(wiced_bt_device_link_keys_t));
@@ -216,8 +221,8 @@ void e03_ble_bond_app_init(void)
     if(result == WICED_BT_SUCCESS)
     {
         result = wiced_bt_dev_add_device_to_address_resolution_db ( &link_keys );
+        WICED_BT_TRACE("\tRead paired keys from NVSRAM and add to address resolution %B result:%d \r\n", p, result );
     }
-    WICED_BT_TRACE("\tRead paired keys from NVSRAM and add to address resolution %B result:%d \r\n", p, result );
 
     /* Register with stack to receive GATT callback */
     wiced_bt_gatt_register( e03_ble_bond_event_handler );
@@ -319,6 +324,8 @@ wiced_bt_dev_status_t e03_ble_bond_management_callback( wiced_bt_management_evt_
     wiced_result_t result = WICED_BT_SUCCESS;
     wiced_bt_dev_encryption_status_t *p_status;
 
+    WICED_BT_TRACE("******************** ble_management_cback: %d\n", event );
+
     switch (event)
     {
     case BTM_ENABLED_EVT:
@@ -359,9 +366,11 @@ wiced_bt_dev_status_t e03_ble_bond_management_callback( wiced_bt_management_evt_
         /* No IO Capabilities on this Platform */
         p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_NONE;
         p_event_data->pairing_io_capabilities_ble_request.oob_data = BTM_OOB_NONE;
-        p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_BOND|BTM_LE_AUTH_REQ_MITM;
+        //p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_BOND|BTM_LE_AUTH_REQ_MITM;
+        p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_SC_BOND;
         p_event_data->pairing_io_capabilities_ble_request.max_key_size = 0x10;
-        p_event_data->pairing_io_capabilities_ble_request.init_keys = 0;
+        //p_event_data->pairing_io_capabilities_ble_request.init_keys = 0;
+        p_event_data->pairing_io_capabilities_ble_request.init_keys = BTM_LE_KEY_PENC|BTM_LE_KEY_PID;
         p_event_data->pairing_io_capabilities_ble_request.resp_keys = BTM_LE_KEY_PENC|BTM_LE_KEY_PID;
         break;
     case BTM_PAIRING_COMPLETE_EVT:
@@ -428,7 +437,7 @@ wiced_bt_dev_status_t e03_ble_bond_management_callback( wiced_bt_management_evt_
             WICED_BT_TRACE( "Local Identity Key Request\n\r");
             wiced_hal_read_nvram( WICED_NVRAM_LOCAL_KEYS, sizeof(wiced_bt_local_identity_keys_t), (uint8_t *)&(p_event_data->local_identity_keys_request), &result );
             /* Result is the number of bytes read */
-            WICED_BT_TRACE("\tlocal keys read from NVRAM result: %d \n\r",  result);
+            WICED_BT_TRACE("\tlocal keys read from NVRAM result: %d Key: %B\n\r",  result, (uint8_t *)&(p_event_data->local_identity_keys_request));
             break;
 
     case BTM_BLE_ADVERT_STATE_CHANGED_EVT:
@@ -624,9 +633,12 @@ wiced_bt_gatt_status_t e03_ble_bond_connect_callback( wiced_bt_gatt_connection_s
             // Device has connected
             WICED_BT_TRACE("Connected : BDA '%B', Connection ID '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id );
 
-            /* TODO: Handle the connection */
             /* Save address of the connected device. */
              connection_id = p_conn_status->conn_id;
+             memcpy(remote_addr, p_conn_status->bd_addr, sizeof(BD_ADDR));
+
+             /* Set CCCD value from the value saved in the NVRAM */
+             e03_ble_bond_capsense_buttons_client_configuration[0] = hostinfo.characteristic_client_configuration;
 
             /* Allow peer to pair */
             wiced_bt_set_pairable_mode(WICED_TRUE, 0);
@@ -640,10 +652,10 @@ wiced_bt_gatt_status_t e03_ble_bond_connect_callback( wiced_bt_gatt_connection_s
             // Device has disconnected
             WICED_BT_TRACE("Disconnected : BDA '%B', Connection ID '%d', Reason '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id, p_conn_status->reason );
 
-            /* TODO: Handle the disconnection */
-            /* Reset connection ID and CCD value*/
+            /* Reset connection ID and remote address. Turn off notifications */
             connection_id = 0;
-
+            memset( remote_addr, 0, 6 );
+            hostinfo.characteristic_client_configuration = 0;
 
             result =  wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
             WICED_BT_TRACE( "\t\tStart Advertisements: %d\r\n", result );

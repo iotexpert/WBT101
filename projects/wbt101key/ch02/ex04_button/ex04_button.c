@@ -1,64 +1,97 @@
-/* Monitor button every 100ms and set the LED based on the button's state */
+/* Monitor BUTTON_1 every 100ms and set LED_1 based on the button's state */
 
+#include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"
-#include "wiced_timer.h"
+#include "wiced_rtos.h"
+#include "wiced_bt_trace.h"
+
 
 /*****************************    Constants   *****************************/
-/* Timer will expire every 100ms so that we can examine the button state */
-#define TIMEOUT_IN_MS (100)
+
+/* Thread will delay for 100ms between button state checks */
+#define THREAD_DELAY_IN_MS         (100)
+
+/* Useful macros for thread priorities */
+#define PRIORITY_HIGH               (3)
+#define PRIORITY_MEDIUM             (5)
+#define PRIORITY_LOW                (7)
+
+/* Sensible stack size for most threads */
+#define THREAD_STACK_MIN_SIZE       (500)
+
 
 /*****************************    Variables   *****************************/
-wiced_timer_t ms_timer;               	/* timer structure */
+
 
 /*****************************    Function Prototypes   *******************/
-wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data);
-void timer_cback( uint32_t arg );
+
+wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
+void led_control( uint32_t arg );
+
 
 /*****************************    Functions   *****************************/
+
 /*  Main application. This just starts the BT stack and provides the callback function.
  *  The actual application initialization will happen when stack reports that BT device is ready. */
 APPLICATION_START( )
 {
-    wiced_bt_stack_init( bt_cback, NULL, NULL ); /* Register BT stack callback */
+    wiced_bt_stack_init( bt_cback, NULL, NULL );                    // Register BT stack callback
 }
 
 
-/* Callback function for BlueTooth events */
-wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data)
+/* Callback function for Bluetooth events */
+wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
     wiced_result_t result = WICED_SUCCESS;
 
+    wiced_thread_t * led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
+
     switch( event )
     {
-        /* BlueTooth  stack enabled */
+        /* BlueTooth stack enabled */
         case BTM_ENABLED_EVT:
-            /* Start a timer to monitor the button */
-            if ( wiced_init_timer(&ms_timer, &timer_cback, 0, WICED_MILLI_SECONDS_PERIODIC_TIMER ) == WICED_SUCCESS )
-			{
-				wiced_start_timer( &ms_timer, TIMEOUT_IN_MS );
-			}
+
+            wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
+            WICED_BT_TRACE( "*** ex04_button ***\n\r" );
+
+            /* Start a thread to control LED blinking */
+            wiced_rtos_init_thread(
+                    led_thread,                     // Thread handle
+                    PRIORITY_MEDIUM,                // Priority
+                    "Blinky",                       // Name
+                    led_control,                    // Function
+                    THREAD_STACK_MIN_SIZE,          // Stack
+                    NULL );                         // Function argument
             break;
+
         default:
             break;
     }
     return result;
 }
 
-/* The function invoked on timeout of the timer. */
-void timer_cback( uint32_t arg )
-{
-    /* Read state of button and set LED based on the button state */
-	if(0 == wiced_hal_gpio_get_pin_input_status( WICED_GPIO_PIN_BUTTON_1 )) // Button is active low
-	{
-		/* Drive LED HIGH */
-		wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, GPIO_PIN_OUTPUT_HIGH);
-	}
-	else
-	{
-		/* Drive LED LOW */
-		wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, GPIO_PIN_OUTPUT_LOW);
-	}
-}
 
+/* Thread function to monitor BUTTON_1 and update LED_1 */
+void led_control( uint32_t arg )
+{
+    for(;;)
+    {
+        if( 0 == wiced_hal_gpio_get_pin_input_status( WICED_GPIO_PIN_BUTTON_1 ) )
+        {
+            /* Drive LED HIGH */
+            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, GPIO_PIN_OUTPUT_HIGH );
+            WICED_BT_TRACE( "LED_HIGH\n\r" );
+        }
+        else
+        {
+            /* Drive LED LOW */
+            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, GPIO_PIN_OUTPUT_LOW );
+            WICED_BT_TRACE( "LED_LOW\n\r" );
+        }
+
+        /* Send the thread to sleep for a period of time */
+        wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );
+    }
+}
