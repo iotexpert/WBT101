@@ -322,6 +322,8 @@ wiced_bt_dev_status_t e03_ble_bond_management_callback( wiced_bt_management_evt_
     wiced_result_t result = WICED_BT_SUCCESS;
     wiced_bt_dev_encryption_status_t *p_status;
 
+    WICED_BT_TRACE("******************** ble_management_cback: %d\n", event );
+
     switch (event)
     {
     case BTM_ENABLED_EVT:

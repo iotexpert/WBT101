@@ -289,6 +289,8 @@ wiced_bt_dev_status_t e02_ble_con_management_callback( wiced_bt_management_evt_t
     wiced_bt_dev_ble_pairing_info_t *p_ble_info = NULL;
     wiced_bt_ble_advert_mode_t *p_adv_mode = NULL;
 
+    WICED_BT_TRACE("******************** ble_management_cback: %x\n", event );
+
     switch (event)
     {
     case BTM_ENABLED_EVT:
@@ -549,8 +551,9 @@ wiced_bt_gatt_status_t e02_ble_con_connect_callback( wiced_bt_gatt_connection_st
             wiced_bt_set_pairable_mode(WICED_TRUE, 0);
 
             /* Stop advertisements */
-            result = wiced_bt_start_advertisements( BTM_BLE_ADVERT_OFF, 0, NULL );
-            WICED_BT_TRACE( "\t\tStop Advertisements%d\r\n", result );
+            // Advertisements are stopped automatically by the stack when a connection happens so this is not needed here.
+            //result = wiced_bt_start_advertisements( BTM_BLE_ADVERT_OFF, 0, NULL );
+            //WICED_BT_TRACE( "\t\tStop Advertisements%d\r\n", result );
         }
         else
         {
