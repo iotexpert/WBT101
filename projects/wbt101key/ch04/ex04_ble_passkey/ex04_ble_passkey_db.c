@@ -8,7 +8,7 @@
 
 #include "wiced_bt_uuid.h"
 #include "wiced_bt_gatt.h"
-#include "ex04_ble_key_db.h"
+#include "ex04_ble_passkey_db.h"
 
 /*************************************************************************************
 ** GATT server definitions
