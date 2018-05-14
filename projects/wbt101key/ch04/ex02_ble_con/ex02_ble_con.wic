@@ -116,7 +116,7 @@
             </Properties>
             <Permissions>
                 <VariableLength>false</VariableLength>
-                <Read>false</Read>
+                <Read>true</Read>
                 <Write>false</Write>
                 <WriteWithoutResponse>false</WriteWithoutResponse>
                 <AuthenticatedRead>true</AuthenticatedRead>
