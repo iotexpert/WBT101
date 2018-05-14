@@ -4,7 +4,7 @@
  *
  */
 
-/** e01_ble_adv.c
+/** ex01_ble_adv.c
  *
  */
 
@@ -46,14 +46,14 @@ uint8_t manuf_data = 0;
 /*******************************************************************
  * Function Prototypes
  ******************************************************************/
-static void                  e01_ble_adv_app_init               ( void );
-static wiced_bt_dev_status_t e01_ble_adv_management_callback    ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
-static void                  e01_ble_adv_set_advertisement_data ( void );
-static void                  e01_ble_adv_advertisement_stopped  ( void );
-static void                  e01_ble_adv_reset_device           ( void );
+static void                  ex01_ble_adv_app_init               ( void );
+static wiced_bt_dev_status_t ex01_ble_adv_management_callback    ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
+static void                  ex01_ble_adv_set_advertisement_data ( void );
+static void                  ex01_ble_adv_advertisement_stopped  ( void );
+static void                  ex01_ble_adv_reset_device           ( void );
 static uint32_t              hci_control_process_rx_cmd         ( uint8_t* p_data, uint32_t len );
 #ifdef HCI_TRACE_OVER_TRANSPORT
-static void                  e01_ble_adv_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
+static void                  ex01_ble_adv_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
 void gpio_interrupt_callback(void *data, uint8_t port_pin);
 
@@ -112,13 +112,13 @@ void application_start(void)
 #endif
 
     /* Initialize Bluetooth Controller and Host Stack */
-    wiced_bt_stack_init(e01_ble_adv_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
+    wiced_bt_stack_init(ex01_ble_adv_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
 }
 
 /*
  * This function is executed in the BTM_ENABLED_EVT management callback.
  */
-void e01_ble_adv_app_init(void)
+void ex01_ble_adv_app_init(void)
 {
     /* Initialize Application */
     wiced_bt_app_init();
@@ -128,7 +128,7 @@ void e01_ble_adv_app_init(void)
     wiced_hal_gpio_configure_pin( WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE), GPIO_PIN_OUTPUT_HIGH );
 
     /* Set Advertisement Data */
-    e01_ble_adv_set_advertisement_data();
+    ex01_ble_adv_set_advertisement_data();
 
     /* Start Undirected LE Advertisements on device startup.
      * The corresponding parameters are contained in 'wiced_bt_cfg.c' */
@@ -137,7 +137,7 @@ void e01_ble_adv_app_init(void)
 }
 
 /* Set Advertisement Data */
-void e01_ble_adv_set_advertisement_data( void )
+void ex01_ble_adv_set_advertisement_data( void )
 {
     wiced_bt_ble_advert_elem_t adv_elem[4] = { 0 };
     uint8_t adv_flag = BTM_BLE_GENERAL_DISCOVERABLE_FLAG | BTM_BLE_BREDR_NOT_SUPPORTED;
@@ -173,7 +173,7 @@ void e01_ble_adv_set_advertisement_data( void )
 }
 
 /* This function is invoked when advertisements stop */
-void e01_ble_adv_advertisement_stopped( void )
+void ex01_ble_adv_advertisement_stopped( void )
 {
     WICED_BT_TRACE("Advertisement stopped\n");
 
@@ -181,7 +181,7 @@ void e01_ble_adv_advertisement_stopped( void )
 }
 
 /* TODO: This function should be called when the device needs to be reset */
-void e01_ble_adv_reset_device( void )
+void ex01_ble_adv_reset_device( void )
 {
     /* TODO: Clear any additional persistent values used by the application from NVRAM */
 
@@ -190,7 +190,7 @@ void e01_ble_adv_reset_device( void )
 }
 
 /* Bluetooth Management Event Handler */
-wiced_bt_dev_status_t e01_ble_adv_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
+wiced_bt_dev_status_t ex01_ble_adv_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
     wiced_bt_dev_status_t status = WICED_BT_SUCCESS;
     wiced_bt_device_address_t bda = { 0 };
@@ -206,7 +206,7 @@ wiced_bt_dev_status_t e01_ble_adv_management_callback( wiced_bt_management_evt_t
         // There is a virtual HCI interface between upper layers of the stack and
         // the controller portion of the chip with lower layers of the BT stack.
         // Register with the stack to receive all HCI commands, events and data.
-        wiced_bt_dev_register_hci_trace(e01_ble_adv_trace_callback);
+        wiced_bt_dev_register_hci_trace(ex01_ble_adv_trace_callback);
 #endif
 
         WICED_BT_TRACE("Bluetooth Enabled (%s)\n",
@@ -219,7 +219,7 @@ wiced_bt_dev_status_t e01_ble_adv_management_callback( wiced_bt_management_evt_t
             WICED_BT_TRACE("Local Bluetooth Address: [%B]\n", bda);
 
             /* Perform application-specific initialization */
-            e01_ble_adv_app_init();
+            ex01_ble_adv_app_init();
         }
         break;
     case BTM_DISABLED_EVT:
@@ -256,7 +256,7 @@ wiced_bt_dev_status_t e01_ble_adv_management_callback( wiced_bt_management_evt_t
         WICED_BT_TRACE("Paired Device Link Request Keys Event\n");
         /* Device/app-specific TODO: HANDLE PAIRED DEVICE LINK REQUEST KEY - retrieve from NVRAM, etc */
 #if 0
-        if (e01_ble_adv_read_link_keys( &p_event_data->paired_device_link_keys_request ))
+        if (ex01_ble_adv_read_link_keys( &p_event_data->paired_device_link_keys_request ))
         {
             WICED_BT_TRACE("Key Retrieval Success\n");
         }
@@ -274,7 +274,7 @@ wiced_bt_dev_status_t e01_ble_adv_management_callback( wiced_bt_management_evt_t
         WICED_BT_TRACE("Advertisement State Change: %d\n", *p_adv_mode);
         if ( BTM_BLE_ADVERT_OFF == *p_adv_mode )
         {
-            e01_ble_adv_advertisement_stopped();
+            ex01_ble_adv_advertisement_stopped();
         }
         break;
     case BTM_USER_CONFIRMATION_REQUEST_EVT:
@@ -337,7 +337,7 @@ uint32_t hci_control_process_rx_cmd( uint8_t* p_data, uint32_t len )
 
 #ifdef HCI_TRACE_OVER_TRANSPORT
 /* Handle Sending of Trace over the Transport */
-void e01_ble_adv_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
+void ex01_ble_adv_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
 {
     wiced_transport_send_hci_trace( transport_pool, type, length, p_data );
 }
@@ -355,7 +355,7 @@ void gpio_interrupt_callback(void *data, uint8_t port_pin)
 
     /* Update advertising parameters */
     manuf_data++;
-    e01_ble_adv_set_advertisement_data();
+    ex01_ble_adv_set_advertisement_data();
 
     /* Re-start advertising */
     result = wiced_bt_start_advertisements( BTM_BLE_ADVERT_NONCONN_HIGH, 0, NULL );
