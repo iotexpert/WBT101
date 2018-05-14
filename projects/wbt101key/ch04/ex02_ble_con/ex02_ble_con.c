@@ -331,9 +331,11 @@ wiced_bt_dev_status_t ex02_ble_con_management_callback( wiced_bt_management_evt_
         /* No IO Capabilities on this Platform */
         p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_NONE;
         p_event_data->pairing_io_capabilities_ble_request.oob_data = BTM_OOB_NONE;
-        p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_BOND|BTM_LE_AUTH_REQ_MITM;
+        //p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_BOND|BTM_LE_AUTH_REQ_MITM;
+        p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_SC_MITM_BOND;
         p_event_data->pairing_io_capabilities_ble_request.max_key_size = 0x10;
-        p_event_data->pairing_io_capabilities_ble_request.init_keys = 0;
+        //p_event_data->pairing_io_capabilities_ble_request.init_keys = 0;
+        p_event_data->pairing_io_capabilities_ble_request.init_keys = BTM_LE_KEY_PENC|BTM_LE_KEY_PID;
         p_event_data->pairing_io_capabilities_ble_request.resp_keys = BTM_LE_KEY_PENC|BTM_LE_KEY_PID;
         break;
     case BTM_PAIRING_COMPLETE_EVT:
