@@ -41,6 +41,7 @@ extern uint8_t BT_LOCAL_NAME[];
 // Transport pool for sending RFCOMM data to host
 static wiced_transport_buffer_pool_t* transport_pool = NULL;
 
+/* This value will be part of the advertisement packet. It will increment when MB1 is pressed */
 uint8_t manuf_data = 0;
 
 /*******************************************************************
@@ -51,11 +52,11 @@ static wiced_bt_dev_status_t ex01_ble_adv_management_callback    ( wiced_bt_mana
 static void                  ex01_ble_adv_set_advertisement_data ( void );
 static void                  ex01_ble_adv_advertisement_stopped  ( void );
 static void                  ex01_ble_adv_reset_device           ( void );
-static uint32_t              hci_control_process_rx_cmd         ( uint8_t* p_data, uint32_t len );
+static uint32_t              hci_control_process_rx_cmd          ( uint8_t* p_data, uint32_t len );
 #ifdef HCI_TRACE_OVER_TRANSPORT
 static void                  ex01_ble_adv_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
-void gpio_interrupt_callback(void *data, uint8_t port_pin);
+void button_cback( void *data, uint8_t port_pin );
 
 /*******************************************************************
  * Macro Definitions
@@ -124,8 +125,8 @@ void ex01_ble_adv_app_init(void)
     wiced_bt_app_init();
 
     /* Configure the Button GPIO as an input with a resistive pull up and interrupt on rising edge */
-    wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, gpio_interrupt_callback, NULL );
-    wiced_hal_gpio_configure_pin( WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE), GPIO_PIN_OUTPUT_HIGH );
+    wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, button_cback, NULL );
+    wiced_hal_gpio_configure_pin( WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE ), GPIO_PIN_OUTPUT_HIGH );
 
     /* Set Advertisement Data */
     ex01_ble_adv_set_advertisement_data();
@@ -133,7 +134,7 @@ void ex01_ble_adv_app_init(void)
     /* Start Undirected LE Advertisements on device startup.
      * The corresponding parameters are contained in 'wiced_bt_cfg.c' */
     /* TODO: Make sure that this is the desired behavior. */
-    wiced_bt_start_advertisements(BTM_BLE_ADVERT_NONCONN_HIGH, 0, NULL);
+    wiced_bt_start_advertisements(BTM_BLE_ADVERT_NONCONN_HIGH , 0, NULL);
 }
 
 /* Set Advertisement Data */
@@ -162,7 +163,7 @@ void ex01_ble_adv_set_advertisement_data( void )
     adv_elem[num_elem].p_data = adv_appearance;
     num_elem++;
 
-    /* Advertisement Element for Manuf. Data */
+    /* Advertisement Element for Manufacturer Data */
     adv_elem[num_elem].advert_type = BTM_BLE_ADVERT_TYPE_MANUFACTURER;
     adv_elem[num_elem].len = sizeof(manuf_data);
     adv_elem[num_elem].p_data = &manuf_data;
@@ -344,20 +345,19 @@ void ex01_ble_adv_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t lengt
 #endif
 
 
-/**************************************************************************/
-/* Interrupt callback handler for button press. This increments the manuf_data advertising parameter. */
-void gpio_interrupt_callback(void *data, uint8_t port_pin)
+/* Interrupt callback function for BUTTON_1 */
+void button_cback( void *data, uint8_t port_pin )
 {
-    wiced_result_t result;
-
     /* Clear the GPIO interrupt */
     wiced_hal_gpio_clear_pin_interrupt_status( WICED_GPIO_PIN_BUTTON_1 );
 
-    /* Update advertising parameters */
+    /* Increment manufacturing data variable */
     manuf_data++;
-    ex01_ble_adv_set_advertisement_data();
 
-    /* Re-start advertising */
-    result = wiced_bt_start_advertisements( BTM_BLE_ADVERT_NONCONN_HIGH, 0, NULL );
-    WICED_BT_TRACE( "wiced_bt_start_advertisements: %d\n\r", result );
+    /* Call routine to setup advertising packet and restart advertising */
+    ex01_ble_adv_set_advertisement_data();
+    wiced_bt_start_advertisements(BTM_BLE_ADVERT_NONCONN_HIGH , 0, NULL);
+
+    WICED_BT_TRACE( "Manuf Data updated to %d\n\r", manuf_data );
+
 }

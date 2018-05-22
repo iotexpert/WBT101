@@ -19,29 +19,28 @@
 #include "wiced_hal_platform.h"
 #include "wiced_bt_trace.h"
 #include "sparcommon.h"
-#include "wiced_timer.h"
 #include "hci_control_api.h"
 #include "wiced_transport.h"
 #include "wiced_hal_pspi.h"
-#include "wiced_hal_i2c.h"
 #include "ex02_ble_con_db.h"
 #include "wiced_bt_cfg.h"
+#include "wiced_rtos.h"
+#include "wiced_hal_i2c.h"
 
 
 /*******************************************************************
  * Constant Definitions
  ******************************************************************/
-#define ex02_ble_con_APP_FINE_TIMEOUT_IN_MILLISECONDS    100
-#define TRANS_UART_BUFFER_SIZE                          1024
-#define TRANS_UART_BUFFER_COUNT                         2
+#define TRANS_UART_BUFFER_SIZE  1024
+#define TRANS_UART_BUFFER_COUNT 2
 
-#define I2C_ADDRESS  (0x42)
-/* Offset for the register that holds CapSense button values */
-#define BUTTON_REG  (0x06)
-/* Mask for the button values from the I2C register (lower 4 bits of the button register) */
-#define BUTTON_MASK (0x0F)
-/* The characteristic we send is a 3 byte array: number of buttons, 2 bytes of button data */
-#define BUTTON_VALUE_POS (2)
+/* Useful macros for thread priorities */
+#define PRIORITY_HIGH               (3)
+#define PRIORITY_MEDIUM             (5)
+#define PRIORITY_LOW                (7)
+
+/* Sensible stack size for most threads */
+#define THREAD_STACK_MIN_SIZE       (500)
 
 /*******************************************************************
  * Variable Definitions
@@ -51,17 +50,9 @@ extern const wiced_bt_cfg_buf_pool_t wiced_bt_cfg_buf_pools[WICED_BT_CFG_NUM_BUF
 // Transport pool for sending RFCOMM data to host
 static wiced_transport_buffer_pool_t* transport_pool = NULL;
 
-uint16_t  connection_id;    // connection ID referenced by the stack
+uint16_t connection_id = 0;
 
-/* Timer structure used to periodically read data from the shield over I2C */
-wiced_timer_t ms_timer;
-
-/* I2C variables */
-uint8_t i2cOffset = BUTTON_REG;
-
-struct {
-    uint8_t buttonVal;
-} __attribute__((packed)) i2cReadBuf;
+wiced_thread_t * i2c_thread;
 
 /*******************************************************************
  * Function Prototypes
@@ -77,11 +68,11 @@ static wiced_bt_gatt_status_t ex02_ble_con_read_handler           ( wiced_bt_gat
 static wiced_bt_gatt_status_t ex02_ble_con_connect_callback       ( wiced_bt_gatt_connection_status_t *p_conn_status );
 static wiced_bt_gatt_status_t ex02_ble_con_server_callback        ( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data );
 static wiced_bt_gatt_status_t ex02_ble_con_event_handler          ( wiced_bt_gatt_evt_t  event, wiced_bt_gatt_event_data_t *p_event_data );
-static void                   ex02_ble_con_fine_timeout           ( uint32_t finecount );
-static uint32_t               hci_control_process_rx_cmd         ( uint8_t* p_data, uint32_t len );
+static uint32_t               hci_control_process_rx_cmd          ( uint8_t* p_data, uint32_t len );
 #ifdef HCI_TRACE_OVER_TRANSPORT
 static void                   ex02_ble_con_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
+void i2c_read( uint32_t arg );
 
 /*******************************************************************
  * Macro Definitions
@@ -126,7 +117,7 @@ uint8_t ex02_ble_con_capsense_buttons_client_configuration[] = {BIT16_TO_8(GATT_
 gatt_db_lookup_table ex02_ble_con_gatt_db_ext_attr_tbl[] =
 {
     /* { attribute handle,                       maxlen, curlen, attribute data } */
-    {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,      11,     11,     ex02_ble_con_generic_access_device_name},
+    {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,      12,     12,     ex02_ble_con_generic_access_device_name},
     {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,       2,      2,      ex02_ble_con_generic_access_appearance},
     {HDLC_CAPSENSE_BUTTONS_VALUE,                3,      3,      ex02_ble_con_capsense_buttons},
     {HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION, 2,      2,      ex02_ble_con_capsense_buttons_client_configuration},
@@ -175,19 +166,6 @@ void ex02_ble_con_app_init(void)
     /* Initialize Application */
     wiced_bt_app_init();
 
-    /* Initialize I2C interface to the PSoC */
-     /* Configure I2C block */
-     wiced_hal_i2c_init();
-     wiced_hal_i2c_set_speed(I2CM_SPEED_400KHZ);
-     /* Write the offset for the button register */
-     wiced_hal_i2c_write(&i2cOffset , 1, I2C_ADDRESS);
-
-     /* Start a timer to read the I2C data every 100ms */
-     if ( wiced_init_timer(&ms_timer, &ex02_ble_con_fine_timeout, 0, WICED_MILLI_SECONDS_PERIODIC_TIMER ) == WICED_SUCCESS )
-     {
-         wiced_start_timer( &ms_timer, ex02_ble_con_APP_FINE_TIMEOUT_IN_MILLISECONDS );
-     }
-
     /* Set Advertisement Data */
     ex02_ble_con_set_advertisement_data();
 
@@ -201,6 +179,16 @@ void ex02_ble_con_app_init(void)
      * The corresponding parameters are contained in 'wiced_bt_cfg.c' */
     /* TODO: Make sure that this is the desired behavior. */
     wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
+
+    /* Start a thread to read button values */
+     i2c_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
+     wiced_rtos_init_thread(
+             i2c_thread,                     // Thread handle
+             PRIORITY_MEDIUM,                // Priority
+             "Buttons",                      // Name
+             i2c_read,                       // Function
+             THREAD_STACK_MIN_SIZE,          // Stack
+             NULL );                         // Function argument
 }
 
 /* Set Advertisement Data */
@@ -208,7 +196,6 @@ void ex02_ble_con_set_advertisement_data( void )
 {
     wiced_bt_ble_advert_elem_t adv_elem[3] = { 0 };
     uint8_t adv_flag = BTM_BLE_GENERAL_DISCOVERABLE_FLAG | BTM_BLE_BREDR_NOT_SUPPORTED;
-    uint8_t capsense_service_uuid[LEN_UUID_128] = { __UUID_CAPSENSE };
     uint8_t num_elem = 0; 
 
     /* Advertisement Element for Flags */
@@ -223,7 +210,8 @@ void ex02_ble_con_set_advertisement_data( void )
     adv_elem[num_elem].p_data = BT_LOCAL_NAME;
     num_elem++;
 
-    /* Advertisement Element for Service UUID */
+    /* Advertisement Element for CapSense Service */
+    uint8_t capsense_service_uuid[LEN_UUID_128] = { __UUID_CAPSENSE };
     adv_elem[num_elem].advert_type = BTM_BLE_ADVERT_TYPE_128SERVICE_DATA;
     adv_elem[num_elem].len = LEN_UUID_128;
     adv_elem[num_elem].p_data = capsense_service_uuid;
@@ -250,37 +238,6 @@ void ex02_ble_con_reset_device( void )
     wiced_hal_wdog_reset_system( );
 }
 
-/* The function invoked on timeout of the milliseconds fine timer */
-void ex02_ble_con_fine_timeout( uint32_t finecount )
-{
-    /* TODO: Handle millisecond fine timeout */
-    /* Save previous button data */
-    uint8_t capSenseValPrev = ex02_ble_con_capsense_buttons[BUTTON_VALUE_POS];
-
-    /* Read button data from shield using I2C */
-    wiced_hal_i2c_read((char *) &i2cReadBuf , sizeof(i2cReadBuf), I2C_ADDRESS);
-
-    /* Copy Button values from I2C register to the CapSense GATT array */
-    ex02_ble_con_capsense_buttons[BUTTON_VALUE_POS] = (i2cReadBuf.buttonVal & BUTTON_MASK);
-
-    /* Check to see if any button values have changed and if so send the data */
-    if(capSenseValPrev != ex02_ble_con_capsense_buttons[BUTTON_VALUE_POS])
-    {
-        WICED_BT_TRACE("\t\t\tCapSense Button Value Change: %x\r\n",ex02_ble_con_capsense_buttons[BUTTON_VALUE_POS]);
-
-        /* Check if connection is up. If not, do nothing */
-        if ( connection_id != 0)
-        {
-            /* If client has registered for notifications, send the value */
-            if ( ex02_ble_con_capsense_buttons_client_configuration[0] & GATT_CLIENT_CONFIG_NOTIFICATION )
-            {
-                wiced_bt_gatt_send_notification(connection_id, HDLC_CAPSENSE_BUTTONS_VALUE, sizeof(ex02_ble_con_capsense_buttons), ex02_ble_con_capsense_buttons );
-                WICED_BT_TRACE( "\tSend Notification: sending CapSense value\r\n");
-            }
-        }
-    }
-}
-
 /* Bluetooth Management Event Handler */
 wiced_bt_dev_status_t ex02_ble_con_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
@@ -288,8 +245,6 @@ wiced_bt_dev_status_t ex02_ble_con_management_callback( wiced_bt_management_evt_
     wiced_bt_device_address_t bda = { 0 };
     wiced_bt_dev_ble_pairing_info_t *p_ble_info = NULL;
     wiced_bt_ble_advert_mode_t *p_adv_mode = NULL;
-
-    WICED_BT_TRACE("******************** ble_management_cback: %x\n", event );
 
     switch (event)
     {
@@ -331,10 +286,8 @@ wiced_bt_dev_status_t ex02_ble_con_management_callback( wiced_bt_management_evt_
         /* No IO Capabilities on this Platform */
         p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_NONE;
         p_event_data->pairing_io_capabilities_ble_request.oob_data = BTM_OOB_NONE;
-        //p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_BOND|BTM_LE_AUTH_REQ_MITM;
         p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_SC_MITM_BOND;
         p_event_data->pairing_io_capabilities_ble_request.max_key_size = 0x10;
-        //p_event_data->pairing_io_capabilities_ble_request.init_keys = 0;
         p_event_data->pairing_io_capabilities_ble_request.init_keys = BTM_LE_KEY_PENC|BTM_LE_KEY_PID;
         p_event_data->pairing_io_capabilities_ble_request.resp_keys = BTM_LE_KEY_PENC|BTM_LE_KEY_PID;
         break;
@@ -535,8 +488,6 @@ wiced_bt_gatt_status_t ex02_ble_con_read_handler( wiced_bt_gatt_read_t *p_read_r
 wiced_bt_gatt_status_t ex02_ble_con_connect_callback( wiced_bt_gatt_connection_status_t *p_conn_status )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
-    wiced_result_t result = WICED_BT_GATT_SUCCESS;
-
 
     if ( NULL != p_conn_status )
     {
@@ -546,16 +497,8 @@ wiced_bt_gatt_status_t ex02_ble_con_connect_callback( wiced_bt_gatt_connection_s
             WICED_BT_TRACE("Connected : BDA '%B', Connection ID '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id );
 
             /* TODO: Handle the connection */
-            /* Save address of the connected device. */
-             connection_id = p_conn_status->conn_id;
-
-            /* Allow peer to pair */
+            connection_id = p_conn_status->conn_id;
             wiced_bt_set_pairable_mode(WICED_TRUE, 0);
-
-            /* Stop advertisements */
-            // Advertisements are stopped automatically by the stack when a connection happens so this is not needed here.
-            //result = wiced_bt_start_advertisements( BTM_BLE_ADVERT_OFF, 0, NULL );
-            //WICED_BT_TRACE( "\t\tStop Advertisements%d\r\n", result );
         }
         else
         {
@@ -563,12 +506,10 @@ wiced_bt_gatt_status_t ex02_ble_con_connect_callback( wiced_bt_gatt_connection_s
             WICED_BT_TRACE("Disconnected : BDA '%B', Connection ID '%d', Reason '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id, p_conn_status->reason );
 
             /* TODO: Handle the disconnection */
-            /* Reset connection ID and CCD value*/
             connection_id = 0;
 
-
-            result =  wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
-            WICED_BT_TRACE( "\t\tStart Advertisements: %d\r\n", result );
+            status =  wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
+            WICED_BT_TRACE( "\t\tStart Advertisements: %d\r\n", status );
         }
         status = WICED_BT_GATT_SUCCESS;
     }
@@ -670,3 +611,56 @@ void ex02_ble_con_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t lengt
     wiced_transport_send_hci_trace( transport_pool, type, length, p_data );
 }
 #endif
+
+
+/* Thread function to read button values from PSoC */
+void i2c_read( uint32_t arg )
+{
+    /* Thread will delay so that button values are read every 100ms */
+    #define THREAD_DELAY_IN_MS          (100)
+
+    /* I2C address and register locations inside the PSoC and a mask for just CapSense buttons */
+    #define I2C_ADDRESS        (0x42)
+    #define BUTTON_REG         (0x06)
+    #define CAPSENSE_MASK      (0x0F)
+
+    char i2cReg;               // I2C Read register
+    char buttonVal;            // Button value
+    char prevVal = 0x00;       // Previous button value
+
+    /* Configure I2C block */
+    wiced_hal_i2c_init();
+    wiced_hal_i2c_set_speed( I2CM_SPEED_400KHZ );
+
+    /* Write the offset to allow reading of the button register */
+    i2cReg = BUTTON_REG;
+    wiced_hal_i2c_write( &i2cReg , sizeof( i2cReg ), I2C_ADDRESS );
+
+    for(;;)
+    {
+        /* Read button values and mask out just the CapSense buttons */
+        wiced_hal_i2c_read( &i2cReg , sizeof( i2cReg ), I2C_ADDRESS );
+        buttonVal = i2cReg & CAPSENSE_MASK;
+
+        if(prevVal != buttonVal) /* Only print if value has changed since last time */
+        {
+            WICED_BT_TRACE( "Button State: %02X\n\r", buttonVal);
+            ex02_ble_con_capsense_buttons[2] = buttonVal;
+
+            /* If the connection is up and if the client wants notifications, send it */
+            if ( connection_id != 0)
+            {
+                /* If client has registered for notifications, send the value */
+                if ( ex02_ble_con_capsense_buttons_client_configuration[0] & GATT_CLIENT_CONFIG_NOTIFICATION )
+                {
+                    wiced_bt_gatt_send_notification(connection_id, HDLC_CAPSENSE_BUTTONS_VALUE, sizeof(ex02_ble_con_capsense_buttons), ex02_ble_con_capsense_buttons );
+                    WICED_BT_TRACE( "\tSend Notification: sending CapSense value\r\n");
+                }
+            }
+            prevVal = buttonVal;
+        }
+
+        /* Send the thread to sleep for a period of time */
+        wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );
+    }
+}

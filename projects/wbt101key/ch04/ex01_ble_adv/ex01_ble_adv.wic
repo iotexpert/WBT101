@@ -45,7 +45,7 @@
             <Uuid>2A00</Uuid>
             <Description/>
             <DataType>org.bluetooth.characteristic.gap.device_name</DataType>
-            <Size>11</Size>
+            <Size>12</Size>
             <InitialValue>ex01_ble_adv</InitialValue>
             <Properties>
                 <Read type="Mandatory">true</Read>

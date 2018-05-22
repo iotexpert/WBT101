@@ -4,8 +4,6 @@
  *
  */
 
-// e02_ble_con_db.c
-
 #include "wiced_bt_uuid.h"
 #include "wiced_bt_gatt.h"
 #include "ex03_ble_bond_db.h"
