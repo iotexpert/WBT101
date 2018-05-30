@@ -102,7 +102,7 @@ wiced_transport_cfg_t transport_cfg =
 /*******************************************************************
  * GATT Initial Value Arrays
  ******************************************************************/
-uint8_t ex02_ble_con_generic_access_device_name[] = {'k','e','y','_','l','e','0','2'};
+uint8_t ex02_ble_con_generic_access_device_name[] = {'k','e','y','_','c','o','n'};
 uint8_t ex02_ble_con_generic_access_appearance[]  = {0x00,0x00};
 uint8_t ex02_ble_con_capsense_buttons[]           = {0x04,0x00,0x00};
 

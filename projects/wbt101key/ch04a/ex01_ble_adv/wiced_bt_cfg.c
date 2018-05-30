@@ -18,7 +18,7 @@
 #include "wiced_bt_cfg.h"
 
 /* Null-Terminated Local Device Name */
-uint8_t BT_LOCAL_NAME[] = { 'k','e','y','_','l','e','0','1','\0' };
+uint8_t BT_LOCAL_NAME[] = { 'k','e','y','_','a','d','v','\0' };
 const uint16_t BT_LOCAL_NAME_CAPACITY = sizeof(BT_LOCAL_NAME);
 
 
