@@ -4,11 +4,9 @@
  *
  */
 
-// ex02_ble_con_db.c
-
 #include "wiced_bt_uuid.h"
 #include "wiced_bt_gatt.h"
-#include "ex02_ble_con_db.h"
+#include "ex04_ble_passkey_db.h"
 
 /*************************************************************************************
 ** GATT server definitions

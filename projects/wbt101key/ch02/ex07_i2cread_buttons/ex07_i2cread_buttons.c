@@ -1,18 +1,14 @@
-/* Change a PWM duty cycle to change brightness of an LED */
+/* Read buttons on the PSoC every 100ms and display to the PUART */
 
 #include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_dev.h"
 #include "wiced_rtos.h"
-#include "wiced_hal_pwm.h"
-
+#include "wiced_hal_i2c.h"
+#include "wiced_bt_trace.h"
 
 /*****************************    Constants   *****************************/
-
-/* Thread will delay for 10ms */
-#define THREAD_DELAY_IN_MS          (10)
-
 /* Useful macros for thread priorities */
 #define PRIORITY_HIGH               (3)
 #define PRIORITY_MEDIUM             (5)
@@ -21,26 +17,14 @@
 /* Sensible stack size for most threads */
 #define THREAD_STACK_MIN_SIZE       (500)
 
-/* The PWM starts at the init value and counts up to 0xFFFF. Then it wraps back around to the init value
- * The output of the PWM starts low and switches high at the toggle value */
-/* These values will cause the PWM to count from (0xFFFF - 99) to 0xFFFF (i.e. period = 100)
- * with a duty cycle of 0xFFFF - 49 (i.e. a 50% duty cycle). */
-#define PWM_MAX                     (0xFFFF)
-#define PWM_INIT                    (PWM_MAX-99)
-#define PWM_TOGGLE                  (PWM_MAX-50)
-
-
 /*****************************    Variables   *****************************/
-
+wiced_thread_t * i2c_thread;
 
 /*****************************    Function Prototypes   *******************/
-
 wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
-void led_control( uint32_t arg );
-
+void i2c_read( uint32_t arg );
 
 /*****************************    Functions   *****************************/
-
 /*  Main application. This just starts the BT stack and provides the callback function.
  *  The actual application initialization will happen when stack reports that BT device is ready. */
 APPLICATION_START( )
@@ -54,23 +38,19 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
 {
     wiced_result_t result = WICED_SUCCESS;
 
-    wiced_thread_t * led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
-
     switch( event )
     {
         /* BlueTooth stack enabled */
         case BTM_ENABLED_EVT:
+            wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
 
-            /* Configure and start the PWM */
-            wiced_hal_pwm_configure_pin( WICED_GPIO_PIN_LED_1, PWM0 );
-            wiced_hal_pwm_start( PWM0, LHL_CLK, PWM_TOGGLE, PWM_INIT, 0 );
-
-            /* Start a thread to control the PWM */
+            /* Start a thread to read button values */
+            i2c_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
             wiced_rtos_init_thread(
-                    led_thread,                     // Thread handle
+                    i2c_thread,                  // Thread handle
                     PRIORITY_MEDIUM,                // Priority
-                    "Blinky",                       // Name
-                    led_control,                    // Function
+                    "Buttons",                      // Name
+                    i2c_read,                    // Function
                     THREAD_STACK_MIN_SIZE,          // Stack
                     NULL );                         // Function argument
             break;
@@ -82,20 +62,40 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
 }
 
 
-/* Thread function to control the LED */
-void led_control( uint32_t arg )
+/* Thread function to read button values from PSoC */
+void i2c_read( uint32_t arg )
 {
-    uint16_t pwmInit   = PWM_INIT;
-    uint16_t pwmToggle = PWM_TOGGLE;
+    /* Thread will delay so that button values are read every 100ms */
+    #define THREAD_DELAY_IN_MS          (100)
+
+    /* I2C address and register locations inside the PSoC and a mask for just CapSense buttons */
+    #define I2C_ADDRESS        (0x42)
+    #define BUTTON_REG         (0x06)
+    #define CAPSENSE_MASK      (0x0F)
+
+    char i2cReg;               // I2C Read register
+    char buttonVal;            // Button value
+    char prevVal = 0x00;       // Previous button value
+
+    /* Configure I2C block */
+    wiced_hal_i2c_init();
+    wiced_hal_i2c_set_speed( I2CM_SPEED_400KHZ );
+
+    /* Write the offset to allow reading of the button register */
+    i2cReg = BUTTON_REG;
+    wiced_hal_i2c_write( &i2cReg , sizeof( i2cReg ), I2C_ADDRESS );
 
     for(;;)
     {
-        pwmToggle++; /* Increase duty cycle by 1% (1 count out of 100) */
-        if( pwmToggle == PWM_MAX ) /* Reset to 0% duty cycle once we reach 100% */
+        /* Read button values and mask out just the CapSense buttons */
+        wiced_hal_i2c_read( &i2cReg , sizeof( i2cReg ), I2C_ADDRESS );
+        buttonVal = i2cReg & CAPSENSE_MASK;
+
+        if(prevVal != buttonVal) /* Only print if value has changed since last time */
         {
-            pwmToggle = PWM_INIT;
+            WICED_BT_TRACE( "Button State: %02X\n\r", buttonVal);
         }
-        wiced_hal_pwm_change_values( PWM0, pwmToggle, pwmInit );
+        prevVal = buttonVal;
 
         /* Send the thread to sleep for a period of time */
         wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );

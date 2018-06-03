@@ -4,8 +4,6 @@
  *
  */
 
-// e02_ble_con_db.c
-
 #include "wiced_bt_uuid.h"
 #include "wiced_bt_gatt.h"
 #include "ex03_ble_bond_db.h"
@@ -38,7 +36,7 @@ const uint8_t gatt_database[] = // Define GATT database
         /* Characteristic 'Buttons' */
         CHARACTERISTIC_UUID128 (HDLC_CAPSENSE_BUTTONS, HDLC_CAPSENSE_BUTTONS_VALUE,
             __UUID_CAPSENSE_BUTTONS, LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY,
-            LEGATTDB_PERM_READABLE),
+            LEGATTDB_PERM_READABLE | LEGATTDB_PERM_AUTH_READABLE),
 
             /* Descriptor 'Client Characteristic Configuration' */
             CHAR_DESCRIPTOR_UUID16_WRITABLE (HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION,

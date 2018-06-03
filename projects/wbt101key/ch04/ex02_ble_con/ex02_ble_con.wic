@@ -13,7 +13,6 @@
         <SPI>false</SPI>
         <Buzzer>false</Buzzer>
         <Battery>false</Battery>
-        <FineTimer>100</FineTimer>
         <GattConfig>
             <GattDatabase>Enabled</GattDatabase>
         </GattConfig>
@@ -46,7 +45,7 @@
             <Uuid>2A00</Uuid>
             <Description/>
             <DataType>org.bluetooth.characteristic.gap.device_name</DataType>
-            <Size>11</Size>
+            <Size>12</Size>
             <InitialValue>ex02_ble_con</InitialValue>
             <Properties>
                 <Read type="Mandatory">true</Read>
@@ -119,7 +118,7 @@
                 <Read>true</Read>
                 <Write>false</Write>
                 <WriteWithoutResponse>false</WriteWithoutResponse>
-                <AuthenticatedRead>false</AuthenticatedRead>
+                <AuthenticatedRead>true</AuthenticatedRead>
                 <ReliableWrite>false</ReliableWrite>
                 <AuthenticatedWrite>false</AuthenticatedWrite>
             </Permissions>

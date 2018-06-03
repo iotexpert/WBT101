@@ -18,7 +18,7 @@
 #include "hci_control_api.h"
 #include "wiced_transport.h"
 #include "wiced_hal_pspi.h"
-#include "ex03_ble_bond_db.h"
+#include "ex04_ble_passkey_db.h"
 #include "wiced_bt_cfg.h"
 #include "wiced_rtos.h"
 #include "wiced_hal_i2c.h"
@@ -110,7 +110,7 @@ wiced_transport_cfg_t transport_cfg =
 /*******************************************************************
  * GATT Initial Value Arrays
  ******************************************************************/
-uint8_t ex03_ble_bond_generic_access_device_name[]            = {'k','e','y','_','l','e','0','3'};
+uint8_t ex03_ble_bond_generic_access_device_name[]            = {'k','e','y','_','l','e','0','4'};
 uint8_t ex03_ble_bond_generic_access_appearance[]             = {0x00,0x00};
 uint8_t ex03_ble_bond_capsense_buttons[]                      = {0x04,0x00,0x00};
 uint8_t ex03_ble_bond_capsense_buttons_client_configuration[] = {BIT16_TO_8(GATT_CLIENT_CONFIG_NONE)};
@@ -300,6 +300,10 @@ wiced_bt_dev_status_t ex03_ble_bond_management_callback( wiced_bt_management_evt
         /* Bluetooth Controller and Host Stack Disabled */
         WICED_BT_TRACE("Bluetooth Disabled\n");
         break;
+    case BTM_PASSKEY_NOTIFICATION_EVT: /* Print passkey to the screen so that the user can enter it. */
+        WICED_BT_TRACE( "Passkey Notification\n\r");
+        WICED_BT_TRACE(">>>>>>>>>>>>>>>>>>>>>>>> PassKey Required for BDA %B, Enter Key: %06d \n\r", p_event_data->user_passkey_notification.bd_addr, p_event_data->user_passkey_notification.passkey );
+        break;
     case BTM_SECURITY_REQUEST_EVT:
         /* Security Request */
         WICED_BT_TRACE("Security Request\n");
@@ -309,7 +313,7 @@ wiced_bt_dev_status_t ex03_ble_bond_management_callback( wiced_bt_management_evt
         /* Request for Pairing IO Capabilities (BLE) */
         WICED_BT_TRACE("BLE Pairing IO Capabilities Request\n");
         /* No IO Capabilities on this Platform */
-        p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_NONE;
+        p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_DISPLAY_ONLY;
         p_event_data->pairing_io_capabilities_ble_request.oob_data = BTM_OOB_NONE;
         p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_SC_MITM_BOND;
         p_event_data->pairing_io_capabilities_ble_request.max_key_size = 0x10;
@@ -335,7 +339,7 @@ wiced_bt_dev_status_t ex03_ble_bond_management_callback( wiced_bt_management_evt
         WICED_BT_TRACE("Encryption Status event: bd ( %B ) res %d\n", p_event_data->encryption_status.bd_addr, p_event_data->encryption_status.result);
 
         /* Connection has been encrypted meaning that we have correct/paired device restore values in the database */
-        wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(hostinfo), (uint8_t*)&hostinfo, &(p_event_data->encryption_status.result) );
+        wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(hostinfo), (uint8_t*)&hostinfo, &(p_event_data->encryption_status.result));
 
         /* Set CCCD value from the value that was previously saved in the NVRAM */
          ex03_ble_bond_capsense_buttons_client_configuration[0] = hostinfo.characteristic_client_configuration;

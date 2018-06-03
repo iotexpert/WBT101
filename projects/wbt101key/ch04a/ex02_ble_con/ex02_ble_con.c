@@ -4,7 +4,7 @@
  *
  */
 
-/** e03_ble_bond.c
+/** ex02_ble_con.c
  *
  */
 
@@ -19,33 +19,29 @@
 #include "wiced_hal_platform.h"
 #include "wiced_bt_trace.h"
 #include "sparcommon.h"
-#include "wiced_timer.h"
 #include "hci_control_api.h"
 #include "wiced_transport.h"
 #include "wiced_hal_pspi.h"
-#include "wiced_hal_i2c.h"
-#include "ex04_ble_key_db.h"
+#include "ex02_ble_con_db.h"
 #include "wiced_bt_cfg.h"
+#include "wiced_rtos.h"
+#include "wiced_hal_i2c.h"
 
 
 /*******************************************************************
  * Constant Definitions
  ******************************************************************/
-#define e03_ble_bond_APP_FINE_TIMEOUT_IN_MILLISECONDS    100
-#define TRANS_UART_BUFFER_SIZE                          1024
-#define TRANS_UART_BUFFER_COUNT                         2
+#define TRANS_UART_BUFFER_SIZE  1024
+#define TRANS_UART_BUFFER_COUNT 2
 
-#define I2C_ADDRESS  (0x42)
-/* Offset for the register that holds CapSense button values */
-#define BUTTON_REG  (0x06)
-/* Mask for the button values from the I2C register (lower 4 bits of the button register) */
-#define BUTTON_MASK (0x0F)
-/* The characteristic we send is a 3 byte array: number of buttons, 2 bytes of button data */
-#define BUTTON_VALUE_POS (2)
+/* Useful macros for thread priorities */
+#define PRIORITY_HIGH               (3)
+#define PRIORITY_MEDIUM             (5)
+#define PRIORITY_LOW                (7)
 
-/* NVSRAM locations available for application data - NVSRAM Volatile Section Identifier */
-#define WICED_NVRAM_LOCAL_KEYS         ( WICED_NVRAM_VSID_START + 1 )
-#define WICED_NVRAM_PAIRED_KEYS        ( WICED_NVRAM_LOCAL_KEYS + 1 )
+/* Sensible stack size for most threads */
+#define THREAD_STACK_MIN_SIZE       (500)
+
 
 /*******************************************************************
  * Variable Definitions
@@ -54,47 +50,28 @@ extern const wiced_bt_cfg_settings_t wiced_bt_cfg_settings;
 extern const wiced_bt_cfg_buf_pool_t wiced_bt_cfg_buf_pools[WICED_BT_CFG_NUM_BUF_POOLS];
 // Transport pool for sending RFCOMM data to host
 static wiced_transport_buffer_pool_t* transport_pool = NULL;
-
-uint16_t  connection_id;    // connection ID referenced by the stack
-BD_ADDR  remote_addr;      // remote device address
-
-/* Timer structure used to periodically read data from the shield over I2C */
-wiced_timer_t ms_timer;
-
-/* I2C variables */
-uint8_t i2cOffset = BUTTON_REG;
-
-struct {
-    uint8_t buttonVal;
-} __attribute__((packed)) i2cReadBuf;
-
-/* Host information saved in  NVRAM */
-struct
-{
-    BD_ADDR   bdaddr;                               /* BD address of the bonded host */
-    uint16_t  characteristic_client_configuration;  /* Current value of the client configuration descriptor */
-} __attribute__((packed)) hostinfo;
+wiced_thread_t * i2c_thread;
 
 /*******************************************************************
  * Function Prototypes
  ******************************************************************/
-static void                   e03_ble_bond_app_init               ( void );
-static wiced_bt_dev_status_t  e03_ble_bond_management_callback    ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
-static void                   e03_ble_bond_set_advertisement_data ( void );
-static void                   e03_ble_bond_advertisement_stopped  ( void );
-static void                   e03_ble_bond_reset_device           ( void );
+static void                   ex02_ble_con_app_init               ( void );
+static wiced_bt_dev_status_t  ex02_ble_con_management_callback    ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
+static void                   ex02_ble_con_set_advertisement_data ( void );
+static void                   ex02_ble_con_advertisement_stopped  ( void );
+static void                   ex02_ble_con_reset_device           ( void );
 /* GATT Registration Callbacks */
-static wiced_bt_gatt_status_t e03_ble_bond_write_handler          ( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id );
-static wiced_bt_gatt_status_t e03_ble_bond_read_handler           ( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id );
-static wiced_bt_gatt_status_t e03_ble_bond_connect_callback       ( wiced_bt_gatt_connection_status_t *p_conn_status );
-static wiced_bt_gatt_status_t e03_ble_bond_server_callback        ( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data );
-static wiced_bt_gatt_status_t e03_ble_bond_event_handler          ( wiced_bt_gatt_evt_t  event, wiced_bt_gatt_event_data_t *p_event_data );
-static void                   e03_ble_bond_fine_timeout           ( uint32_t finecount );
-static uint32_t               hci_control_process_rx_cmd         ( uint8_t* p_data, uint32_t len );
-wiced_result_t                e03_ble_bond_read_link_keys( wiced_bt_device_link_keys_t * link_keys_request);
+static wiced_bt_gatt_status_t ex02_ble_con_write_handler          ( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id );
+static wiced_bt_gatt_status_t ex02_ble_con_read_handler           ( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id );
+static wiced_bt_gatt_status_t ex02_ble_con_connect_callback       ( wiced_bt_gatt_connection_status_t *p_conn_status );
+static wiced_bt_gatt_status_t ex02_ble_con_server_callback        ( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data );
+static wiced_bt_gatt_status_t ex02_ble_con_event_handler          ( wiced_bt_gatt_evt_t  event, wiced_bt_gatt_event_data_t *p_event_data );
+static uint32_t               hci_control_process_rx_cmd          ( uint8_t* p_data, uint32_t len );
 #ifdef HCI_TRACE_OVER_TRANSPORT
-static void                   e03_ble_bond_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
+static void                   ex02_ble_con_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
+void i2c_read( uint32_t arg );
+
 
 /*******************************************************************
  * Macro Definitions
@@ -125,10 +102,9 @@ wiced_transport_cfg_t transport_cfg =
 /*******************************************************************
  * GATT Initial Value Arrays
  ******************************************************************/
-uint8_t e03_ble_bond_generic_access_device_name[]            = {'k','e','y','_','l','e','0','4'};
-uint8_t e03_ble_bond_generic_access_appearance[]             = {0x00,0x00};
-uint8_t e03_ble_bond_capsense_buttons[]                      = {0x04,0x00,0x00};
-uint8_t e03_ble_bond_capsense_buttons_client_configuration[] = {BIT16_TO_8(GATT_CLIENT_CONFIG_NONE)};
+uint8_t ex02_ble_con_generic_access_device_name[] = {'k','e','y','_','c','o','n'};
+uint8_t ex02_ble_con_generic_access_appearance[]  = {0x00,0x00};
+uint8_t ex02_ble_con_capsense_buttons[]           = {0x04,0x00,0x00};
 
 /*******************************************************************
  * GATT Lookup Table
@@ -136,17 +112,16 @@ uint8_t e03_ble_bond_capsense_buttons_client_configuration[] = {BIT16_TO_8(GATT_
 
 /* GATT attribute lookup table                                */
 /* (attributes externally referenced by GATT server database) */
-gatt_db_lookup_table e03_ble_bond_gatt_db_ext_attr_tbl[] =
+gatt_db_lookup_table ex02_ble_con_gatt_db_ext_attr_tbl[] =
 {
-    /* { attribute handle,                       maxlen, curlen, attribute data } */
-    {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,      11,     11,     e03_ble_bond_generic_access_device_name},
-    {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,       2,      2,      e03_ble_bond_generic_access_appearance},
-    {HDLC_CAPSENSE_BUTTONS_VALUE,                3,      3,      e03_ble_bond_capsense_buttons},
-    {HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION, 2,      2,      e03_ble_bond_capsense_buttons_client_configuration},
+    /* { attribute handle,                  maxlen, curlen, attribute data } */
+    {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE, 12,     12,     ex02_ble_con_generic_access_device_name},
+    {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,  2,      2,      ex02_ble_con_generic_access_appearance},
+    {HDLC_CAPSENSE_BUTTONS_VALUE,           3,      3,      ex02_ble_con_capsense_buttons},
 };
 
 // Number of Lookup Table Entries
-const uint16_t e03_ble_bond_gatt_db_ext_attr_tbl_size = ( sizeof ( e03_ble_bond_gatt_db_ext_attr_tbl ) / sizeof ( gatt_db_lookup_table ) );
+const uint16_t ex02_ble_con_gatt_db_ext_attr_tbl_size = ( sizeof ( ex02_ble_con_gatt_db_ext_attr_tbl ) / sizeof ( gatt_db_lookup_table ) );
 
 /*******************************************************************
  * Function Definitions
@@ -177,53 +152,32 @@ void application_start(void)
 #endif
 
     /* Initialize Bluetooth Controller and Host Stack */
-    wiced_bt_stack_init(e03_ble_bond_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
+    wiced_bt_stack_init(ex02_ble_con_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
 }
 
 /*
  * This function is executed in the BTM_ENABLED_EVT management callback.
  */
-void e03_ble_bond_app_init(void)
+void ex02_ble_con_app_init(void)
 {
-    wiced_result_t              result;
-    wiced_bt_device_link_keys_t link_keys;
-    uint8_t                     *p;
-
     /* Initialize Application */
     wiced_bt_app_init();
 
-    /* Initialize I2C interface to the PSoC */
-     /* Configure I2C block */
-     wiced_hal_i2c_init();
-     wiced_hal_i2c_set_speed(I2CM_SPEED_400KHZ);
-     /* Write the offset for the button register */
-     wiced_hal_i2c_write(&i2cOffset , 1, I2C_ADDRESS);
-
-     /* Start a timer to read the I2C data every 100ms */
-     if ( wiced_init_timer(&ms_timer, &e03_ble_bond_fine_timeout, 0, WICED_MILLI_SECONDS_PERIODIC_TIMER ) == WICED_SUCCESS )
-     {
-         wiced_start_timer( &ms_timer, e03_ble_bond_APP_FINE_TIMEOUT_IN_MILLISECONDS );
-     }
+    /* Start a thread to read button values */
+    i2c_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
+    wiced_rtos_init_thread(
+            i2c_thread,                  // Thread handle
+            PRIORITY_MEDIUM,                // Priority
+            "Buttons",                      // Name
+            i2c_read,                    // Function
+            THREAD_STACK_MIN_SIZE,          // Stack
+            NULL );                         // Function argument
 
     /* Set Advertisement Data */
-    e03_ble_bond_set_advertisement_data();
-
-    /* Enable privacy to advertise with RPA (Resolvable Private Address) */
-    //wiced_bt_ble_enable_privacy ( WICED_TRUE ); //GJL is this necessary?
-
-    /* Load the address resolution DB with the keys stored in the NVRAM */
-    /* If no client has connected previously, then this read will fail */
-    memset( &link_keys, 0, sizeof(wiced_bt_device_link_keys_t));
-    p = (uint8_t*)&link_keys;
-    wiced_hal_read_nvram( WICED_NVRAM_PAIRED_KEYS, sizeof(wiced_bt_device_link_keys_t), p, &result);
-    if(result == WICED_BT_SUCCESS)
-    {
-        result = wiced_bt_dev_add_device_to_address_resolution_db ( &link_keys );
-    }
-    WICED_BT_TRACE("\tRead paired keys from NVSRAM and add to address resolution %B result:%d \r\n", p, result );
+    ex02_ble_con_set_advertisement_data();
 
     /* Register with stack to receive GATT callback */
-    wiced_bt_gatt_register( e03_ble_bond_event_handler );
+    wiced_bt_gatt_register( ex02_ble_con_event_handler );
 
     /* Initialize GATT Database */
     wiced_bt_gatt_db_init( gatt_database, gatt_database_len );
@@ -235,12 +189,12 @@ void e03_ble_bond_app_init(void)
 }
 
 /* Set Advertisement Data */
-void e03_ble_bond_set_advertisement_data( void )
+void ex02_ble_con_set_advertisement_data( void )
 {
     wiced_bt_ble_advert_elem_t adv_elem[3] = { 0 };
     uint8_t adv_flag = BTM_BLE_GENERAL_DISCOVERABLE_FLAG | BTM_BLE_BREDR_NOT_SUPPORTED;
-    uint8_t capsense_service_uuid[LEN_UUID_128] = { __UUID_CAPSENSE };
     uint8_t num_elem = 0; 
+    uint8_t capsense_service_uuid[LEN_UUID_128] = { __UUID_CAPSENSE };
 
     /* Advertisement Element for Flags */
     adv_elem[num_elem].advert_type = BTM_BLE_ADVERT_TYPE_FLAG;
@@ -254,7 +208,7 @@ void e03_ble_bond_set_advertisement_data( void )
     adv_elem[num_elem].p_data = BT_LOCAL_NAME;
     num_elem++;
 
-    /* Advertisement Element for Service UUID */
+    /* Advertisement Element for CapSense Service */
     adv_elem[num_elem].advert_type = BTM_BLE_ADVERT_TYPE_128SERVICE_DATA;
     adv_elem[num_elem].len = LEN_UUID_128;
     adv_elem[num_elem].p_data = capsense_service_uuid;
@@ -265,7 +219,7 @@ void e03_ble_bond_set_advertisement_data( void )
 }
 
 /* This function is invoked when advertisements stop */
-void e03_ble_bond_advertisement_stopped( void )
+void ex02_ble_con_advertisement_stopped( void )
 {
     WICED_BT_TRACE("Advertisement stopped\n");
 
@@ -273,7 +227,7 @@ void e03_ble_bond_advertisement_stopped( void )
 }
 
 /* TODO: This function should be called when the device needs to be reset */
-void e03_ble_bond_reset_device( void )
+void ex02_ble_con_reset_device( void )
 {
     /* TODO: Clear any additional persistent values used by the application from NVRAM */
 
@@ -281,46 +235,13 @@ void e03_ble_bond_reset_device( void )
     wiced_hal_wdog_reset_system( );
 }
 
-/* The function invoked on timeout of the milliseconds fine timer */
-void e03_ble_bond_fine_timeout( uint32_t finecount )
-{
-    /* TODO: Handle millisecond fine timeout */
-    /* Save previous button data */
-    uint8_t capSenseValPrev = e03_ble_bond_capsense_buttons[BUTTON_VALUE_POS];
-
-    /* Read button data from shield using I2C */
-    wiced_hal_i2c_read((char *) &i2cReadBuf , sizeof(i2cReadBuf), I2C_ADDRESS);
-
-    /* Copy Button values from I2C register to the CapSense GATT array */
-    e03_ble_bond_capsense_buttons[BUTTON_VALUE_POS] = (i2cReadBuf.buttonVal & BUTTON_MASK);
-
-    /* Check to see if any button values have changed and if so send the data */
-    if(capSenseValPrev != e03_ble_bond_capsense_buttons[BUTTON_VALUE_POS])
-    {
-        WICED_BT_TRACE("\t\t\tCapSense Button Value Change: %x\r\n",e03_ble_bond_capsense_buttons[BUTTON_VALUE_POS]);
-
-        /* Check if connection is up. If not, do nothing */
-        if ( connection_id != 0)
-        {
-            /* If client has registered for notifications, send the value */
-            if ( e03_ble_bond_capsense_buttons_client_configuration[0] & GATT_CLIENT_CONFIG_NOTIFICATION )
-            {
-                wiced_bt_gatt_send_notification(connection_id, HDLC_CAPSENSE_BUTTONS_VALUE, sizeof(e03_ble_bond_capsense_buttons), e03_ble_bond_capsense_buttons );
-                WICED_BT_TRACE( "\tSend Notification: sending CapSense value\r\n");
-            }
-        }
-    }
-}
-
 /* Bluetooth Management Event Handler */
-wiced_bt_dev_status_t e03_ble_bond_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
+wiced_bt_dev_status_t ex02_ble_con_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
     wiced_bt_dev_status_t status = WICED_BT_SUCCESS;
     wiced_bt_device_address_t bda = { 0 };
     wiced_bt_dev_ble_pairing_info_t *p_ble_info = NULL;
     wiced_bt_ble_advert_mode_t *p_adv_mode = NULL;
-    wiced_result_t result = WICED_BT_SUCCESS;
-    wiced_bt_dev_encryption_status_t *p_status;
 
     switch (event)
     {
@@ -331,7 +252,7 @@ wiced_bt_dev_status_t e03_ble_bond_management_callback( wiced_bt_management_evt_
         // There is a virtual HCI interface between upper layers of the stack and
         // the controller portion of the chip with lower layers of the BT stack.
         // Register with the stack to receive all HCI commands, events and data.
-        wiced_bt_dev_register_hci_trace(e03_ble_bond_trace_callback);
+        wiced_bt_dev_register_hci_trace(ex02_ble_con_trace_callback);
 #endif
 
         WICED_BT_TRACE("Bluetooth Enabled (%s)\n",
@@ -344,20 +265,13 @@ wiced_bt_dev_status_t e03_ble_bond_management_callback( wiced_bt_management_evt_
             WICED_BT_TRACE("Local Bluetooth Address: [%B]\n", bda);
 
             /* Perform application-specific initialization */
-            e03_ble_bond_app_init();
+            ex02_ble_con_app_init();
         }
         break;
     case BTM_DISABLED_EVT:
         /* Bluetooth Controller and Host Stack Disabled */
         WICED_BT_TRACE("Bluetooth Disabled\n");
         break;
-
-    /* Print passkey to the screen so that the user can enter it. */
-    case BTM_PASSKEY_NOTIFICATION_EVT:
-        WICED_BT_TRACE( "Passkey Notification\n\r");
-        WICED_BT_TRACE("********** PassKey Required for BDA %B, Enter Key: %06d \n\r", p_event_data->user_passkey_notification.bd_addr, p_event_data->user_passkey_notification.passkey );
-        break;
-
     case BTM_SECURITY_REQUEST_EVT:
         /* Security Request */
         WICED_BT_TRACE("Security Request\n");
@@ -367,87 +281,46 @@ wiced_bt_dev_status_t e03_ble_bond_management_callback( wiced_bt_management_evt_
         /* Request for Pairing IO Capabilities (BLE) */
         WICED_BT_TRACE("BLE Pairing IO Capabilities Request\n");
         /* No IO Capabilities on this Platform */
-        p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_DISPLAY_ONLY;
+        p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_NONE;
         p_event_data->pairing_io_capabilities_ble_request.oob_data = BTM_OOB_NONE;
         p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_BOND|BTM_LE_AUTH_REQ_MITM;
         p_event_data->pairing_io_capabilities_ble_request.max_key_size = 0x10;
-        p_event_data->pairing_io_capabilities_ble_request.init_keys = BTM_LE_KEY_PENC|BTM_LE_KEY_PID;
+        p_event_data->pairing_io_capabilities_ble_request.init_keys = 0;
         p_event_data->pairing_io_capabilities_ble_request.resp_keys = BTM_LE_KEY_PENC|BTM_LE_KEY_PID;
         break;
     case BTM_PAIRING_COMPLETE_EVT:
         /* Pairing is Complete */
         p_ble_info = &p_event_data->pairing_complete.pairing_complete_info.ble;
         WICED_BT_TRACE("Pairing Complete %d.\n", p_ble_info->reason);
-
-        if ( p_ble_info->reason == WICED_BT_SUCCESS ) /* Bonding successful */
-        {
-            /* Pack the data to be stored into the hostinfo structure */
-            memcpy( hostinfo.bdaddr, remote_addr, sizeof( BD_ADDR ) );
-
-            /* Write to NVRAM */
-            wiced_hal_write_nvram( WICED_NVRAM_VSID_START, sizeof(hostinfo), (uint8_t*)&hostinfo, &result );
-            WICED_BT_TRACE("\tBonding info save to NVRAM\n\r");
-        }
-
         break;
     case BTM_ENCRYPTION_STATUS_EVT:
         /* Encryption Status Change */
-        p_status = &(p_event_data->encryption_status);
-        WICED_BT_TRACE("Encryption Status event: bd ( %B ) res %d\n", p_status->bd_addr, p_status->result);
-
-        /* Connection has been encrypted meaning that we have correct/paired device restore values in the database */
-        wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(hostinfo), (uint8_t*)&hostinfo, &(p_status->result) );
-
+        WICED_BT_TRACE("Encryption Status event: bd ( %B ) res %d\n", p_event_data->encryption_status.bd_addr, p_event_data->encryption_status.result);
         break;
-
-    case BTM_PAIRED_DEVICE_LINK_KEYS_UPDATE_EVT:
-            /* save keys to NVRAM */
-            WICED_BT_TRACE( "Paired Device Key Update\n\r");
-            wiced_hal_write_nvram ( WICED_NVRAM_PAIRED_KEYS, sizeof( wiced_bt_device_link_keys_t ), (uint8_t*)&(p_event_data->paired_device_link_keys_update) ,&result );
-            WICED_BT_TRACE("\tKeys save to NVRAM %B result: %d \n\r", (uint8_t*)&(p_event_data->paired_device_link_keys_update), result);
-        break;
-
     case BTM_PAIRED_DEVICE_LINK_KEYS_REQUEST_EVT:
         /* Paired Device Link Keys Request */
         WICED_BT_TRACE("Paired Device Link Request Keys Event\n");
         /* Device/app-specific TODO: HANDLE PAIRED DEVICE LINK REQUEST KEY - retrieve from NVRAM, etc */
-        #if 1
-        if (e03_ble_bond_read_link_keys( &p_event_data->paired_device_link_keys_request ))
+#if 0
+        if (ex02_ble_con_read_link_keys( &p_event_data->paired_device_link_keys_request ))
         {
             WICED_BT_TRACE("Key Retrieval Success\n");
         }
         else
-        #endif
+#endif
         /* Until key retrieval implemented above, just fail the request - will cause re-pairing */
         {
             WICED_BT_TRACE("Key Retrieval Failure\n");
             status = WICED_BT_ERROR;
         }
         break;
-
-        /* Update of local keys - save to NVSRAM */
-        case BTM_LOCAL_IDENTITY_KEYS_UPDATE_EVT:
-                WICED_BT_TRACE( "Local Identity Key Update\n\r");
-                wiced_hal_write_nvram ( WICED_NVRAM_LOCAL_KEYS, sizeof( wiced_bt_local_identity_keys_t ), (uint8_t*)&(p_event_data->local_identity_keys_update) ,&result );
-                /* Result is the number of bytes written */
-                WICED_BT_TRACE("\tlocal keys save to NVRAM result: %d \n\r", result);
-                break;
-
-        /* Request for local keys - read from NVSRAM */
-        case BTM_LOCAL_IDENTITY_KEYS_REQUEST_EVT:
-            WICED_BT_TRACE( "Local Identity Key Request\n\r");
-            wiced_hal_read_nvram( WICED_NVRAM_LOCAL_KEYS, sizeof(wiced_bt_local_identity_keys_t), (uint8_t *)&(p_event_data->local_identity_keys_request), &result );
-            /* Result is the number of bytes read */
-            WICED_BT_TRACE("\tlocal keys read from NVRAM result: %d \n\r",  result);
-            break;
-
     case BTM_BLE_ADVERT_STATE_CHANGED_EVT:
         /* Advertisement State Changed */
         p_adv_mode = &p_event_data->ble_advert_state_changed;
         WICED_BT_TRACE("Advertisement State Change: %d\n", *p_adv_mode);
         if ( BTM_BLE_ADVERT_OFF == *p_adv_mode )
         {
-            e03_ble_bond_advertisement_stopped();
+            ex02_ble_con_advertisement_stopped();
         }
         break;
     case BTM_USER_CONFIRMATION_REQUEST_EVT:
@@ -464,25 +337,25 @@ wiced_bt_dev_status_t e03_ble_bond_management_callback( wiced_bt_management_evt_
 }
 
 /* Get a Value */
-wiced_bt_gatt_status_t e03_ble_bond_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
+wiced_bt_gatt_status_t ex02_ble_con_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
 {
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
     // Check for a matching handle entry
-    for (i = 0; i < e03_ble_bond_gatt_db_ext_attr_tbl_size; i++)
+    for (i = 0; i < ex02_ble_con_gatt_db_ext_attr_tbl_size; i++)
     {
-        if (e03_ble_bond_gatt_db_ext_attr_tbl[i].handle == attr_handle)
+        if (ex02_ble_con_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
             // Detected a matching handle in external lookup table
             isHandleInTable = WICED_TRUE;
             // Detected a matching handle in the external lookup table
-            if (e03_ble_bond_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
+            if (ex02_ble_con_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
             {
                 // Value fits within the supplied buffer; copy over the value
-                *p_len = e03_ble_bond_gatt_db_ext_attr_tbl[i].cur_len;
-                memcpy(p_val, e03_ble_bond_gatt_db_ext_attr_tbl[i].p_data, e03_ble_bond_gatt_db_ext_attr_tbl[i].cur_len);
+                *p_len = ex02_ble_con_gatt_db_ext_attr_tbl[i].cur_len;
+                memcpy(p_val, ex02_ble_con_gatt_db_ext_attr_tbl[i].p_data, ex02_ble_con_gatt_db_ext_attr_tbl[i].cur_len);
                 res = WICED_BT_GATT_SUCCESS;
 
                 // TODO: Add code for any action required when this attribute is read
@@ -493,8 +366,6 @@ wiced_bt_gatt_status_t e03_ble_bond_get_value( uint16_t attr_handle, uint16_t co
                 case HDLC_GENERIC_ACCESS_APPEARANCE_VALUE:
                     break;
                 case HDLC_CAPSENSE_BUTTONS_VALUE:
-                    break;
-                case HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION:
                     break;
                 }
             }
@@ -527,7 +398,7 @@ wiced_bt_gatt_status_t e03_ble_bond_get_value( uint16_t attr_handle, uint16_t co
 }
 
 /* Set a Value */
-wiced_bt_gatt_status_t e03_ble_bond_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
+wiced_bt_gatt_status_t ex02_ble_con_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
 {
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
@@ -535,40 +406,23 @@ wiced_bt_gatt_status_t e03_ble_bond_set_value( uint16_t attr_handle, uint16_t co
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
     // Check for a matching handle entry
-    for (i = 0; i < e03_ble_bond_gatt_db_ext_attr_tbl_size; i++)
+    for (i = 0; i < ex02_ble_con_gatt_db_ext_attr_tbl_size; i++)
     {
-        if (e03_ble_bond_gatt_db_ext_attr_tbl[i].handle == attr_handle)
+        if (ex02_ble_con_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
             // Detected a matching handle in external lookup table
             isHandleInTable = WICED_TRUE;
             // Verify that size constraints have been met
-            validLen = (e03_ble_bond_gatt_db_ext_attr_tbl[i].max_len >= len);
+            validLen = (ex02_ble_con_gatt_db_ext_attr_tbl[i].max_len >= len);
             if (validLen)
             {
                 // Value fits within the supplied buffer; copy over the value
-                e03_ble_bond_gatt_db_ext_attr_tbl[i].cur_len = len;
-                memcpy(e03_ble_bond_gatt_db_ext_attr_tbl[i].p_data, p_val, len);
+                ex02_ble_con_gatt_db_ext_attr_tbl[i].cur_len = len;
+                memcpy(ex02_ble_con_gatt_db_ext_attr_tbl[i].p_data, p_val, len);
                 res = WICED_BT_GATT_SUCCESS;
 
                 // TODO: Add code for any action required when this attribute is written
                 // For example you may need to write the value into NVRAM if it needs to be persistent
-                switch ( attr_handle )
-                {
-                case HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION:
-
-                    if ( len != 2 )
-                    {
-                        return WICED_BT_GATT_INVALID_ATTR_LEN;
-                    }
-                    hostinfo.characteristic_client_configuration = p_val[0] | ( p_val[1] << 8 ); //GJL - need reordering here?
-
-                    /* Save value to NVRAM */
-                    wiced_result_t temp_result;
-                    wiced_hal_write_nvram( WICED_NVRAM_VSID_START, sizeof(hostinfo), (uint8_t*)&hostinfo, &temp_result );
-                    WICED_BT_TRACE("\t\tWrite CCCD value to NVRAM\n\r");
-
-                    break;
-                }
             }
             else
             {
@@ -599,33 +453,31 @@ wiced_bt_gatt_status_t e03_ble_bond_set_value( uint16_t attr_handle, uint16_t co
 }
 
 /* Handles Write Requests received from Client device */
-wiced_bt_gatt_status_t e03_ble_bond_write_handler( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id )
+wiced_bt_gatt_status_t ex02_ble_con_write_handler( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_INVALID_HANDLE;
 
     /* Attempt to perform the Write Request */
-    status = e03_ble_bond_set_value(p_write_req->handle, conn_id, p_write_req->p_val, p_write_req->val_len);
+    status = ex02_ble_con_set_value(p_write_req->handle, conn_id, p_write_req->p_val, p_write_req->val_len);
 
     return status;
 }
 
 /* Handles Read Requests received from Client device */
-wiced_bt_gatt_status_t e03_ble_bond_read_handler( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id )
+wiced_bt_gatt_status_t ex02_ble_con_read_handler( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_INVALID_HANDLE;
 
     /* Attempt to perform the Read Request */
-    status = e03_ble_bond_get_value(p_read_req->handle, conn_id, p_read_req->p_val, *p_read_req->p_val_len, p_read_req->p_val_len);
+    status = ex02_ble_con_get_value(p_read_req->handle, conn_id, p_read_req->p_val, *p_read_req->p_val_len, p_read_req->p_val_len);
 
     return status;
 }
 
 /* GATT Connection Status Callback */
-wiced_bt_gatt_status_t e03_ble_bond_connect_callback( wiced_bt_gatt_connection_status_t *p_conn_status )
+wiced_bt_gatt_status_t ex02_ble_con_connect_callback( wiced_bt_gatt_connection_status_t *p_conn_status )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
-    wiced_result_t result = WICED_BT_GATT_SUCCESS;
-
 
     if ( NULL != p_conn_status )
     {
@@ -635,15 +487,6 @@ wiced_bt_gatt_status_t e03_ble_bond_connect_callback( wiced_bt_gatt_connection_s
             WICED_BT_TRACE("Connected : BDA '%B', Connection ID '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id );
 
             /* TODO: Handle the connection */
-            /* Save address of the connected device. */
-             connection_id = p_conn_status->conn_id;
-
-            /* Allow peer to pair */
-            wiced_bt_set_pairable_mode(WICED_TRUE, 0);
-
-            /* Stop advertisements */
-            result = wiced_bt_start_advertisements( BTM_BLE_ADVERT_OFF, 0, NULL );
-            WICED_BT_TRACE( "\t\tStop Advertisements%d\r\n", result );
         }
         else
         {
@@ -651,12 +494,7 @@ wiced_bt_gatt_status_t e03_ble_bond_connect_callback( wiced_bt_gatt_connection_s
             WICED_BT_TRACE("Disconnected : BDA '%B', Connection ID '%d', Reason '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id, p_conn_status->reason );
 
             /* TODO: Handle the disconnection */
-            /* Reset connection ID and CCD value*/
-            connection_id = 0;
-
-
-            result =  wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
-            WICED_BT_TRACE( "\t\tStart Advertisements: %d\r\n", result );
+            wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
         }
         status = WICED_BT_GATT_SUCCESS;
     }
@@ -665,17 +503,17 @@ wiced_bt_gatt_status_t e03_ble_bond_connect_callback( wiced_bt_gatt_connection_s
 }
 
 /* GATT Server Event Callback */
-wiced_bt_gatt_status_t e03_ble_bond_server_callback( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data )
+wiced_bt_gatt_status_t ex02_ble_con_server_callback( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
 
     switch ( type )
     {
     case GATTS_REQ_TYPE_READ:
-        status = e03_ble_bond_read_handler( &p_data->read_req, conn_id );
+        status = ex02_ble_con_read_handler( &p_data->read_req, conn_id );
         break;
     case GATTS_REQ_TYPE_WRITE:
-        status = e03_ble_bond_write_handler( &p_data->write_req, conn_id );
+        status = ex02_ble_con_write_handler( &p_data->write_req, conn_id );
         break;
     }
 
@@ -683,7 +521,7 @@ wiced_bt_gatt_status_t e03_ble_bond_server_callback( uint16_t conn_id, wiced_bt_
 }
 
 /* GATT Event Handler */
-wiced_bt_gatt_status_t e03_ble_bond_event_handler( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_event_data )
+wiced_bt_gatt_status_t ex02_ble_con_event_handler( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_event_data )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
     wiced_bt_gatt_connection_status_t *p_conn_status = NULL;
@@ -692,11 +530,11 @@ wiced_bt_gatt_status_t e03_ble_bond_event_handler( wiced_bt_gatt_evt_t event, wi
     switch ( event )
     {
     case GATT_CONNECTION_STATUS_EVT:
-        status = e03_ble_bond_connect_callback( &p_event_data->connection_status );
+        status = ex02_ble_con_connect_callback( &p_event_data->connection_status );
         break;
     case GATT_ATTRIBUTE_REQUEST_EVT:
         p_attr_req = &p_event_data->attribute_request;
-        status = e03_ble_bond_server_callback( p_attr_req->conn_id, p_attr_req->request_type, &p_attr_req->data );
+        status = ex02_ble_con_server_callback( p_attr_req->conn_id, p_attr_req->request_type, &p_attr_req->data );
         break;
     default:
         status = WICED_BT_GATT_SUCCESS;
@@ -751,19 +589,52 @@ uint32_t hci_control_process_rx_cmd( uint8_t* p_data, uint32_t len )
     return status;
 }
 
-wiced_result_t e03_ble_bond_read_link_keys(wiced_bt_device_link_keys_t * link_keys_request)
-{
-    /* read keys from NVRAM */
-    wiced_result_t result;
-    wiced_hal_read_nvram( WICED_NVRAM_PAIRED_KEYS, sizeof(wiced_bt_device_link_keys_t), (uint8_t *) link_keys_request, &result );
-    WICED_BT_TRACE("\tKeys read from NVRAM %B result: %d \n\r", link_keys_request, result);
-    return result;
-}
-
 #ifdef HCI_TRACE_OVER_TRANSPORT
 /* Handle Sending of Trace over the Transport */
-void e03_ble_bond_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
+void ex02_ble_con_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
 {
     wiced_transport_send_hci_trace( transport_pool, type, length, p_data );
 }
 #endif
+
+
+/* Thread function to read button values from PSoC */
+void i2c_read( uint32_t arg )
+{
+    /* Thread will delay so that button values are read every 100ms */
+    #define THREAD_DELAY_IN_MS          (100)
+
+    /* I2C address and register locations inside the PSoC and a mask for just CapSense buttons */
+    #define I2C_ADDRESS        (0x42)
+    #define BUTTON_REG         (0x06)
+    #define CAPSENSE_MASK      (0x0F)
+
+    char i2cReg;               // I2C Read register
+    char buttonVal;            // Button value
+    char prevVal = 0x00;       // Previous button value
+
+    /* Configure I2C block */
+    wiced_hal_i2c_init();
+    wiced_hal_i2c_set_speed( I2CM_SPEED_400KHZ );
+
+    /* Write the offset to allow reading of the button register */
+    i2cReg = BUTTON_REG;
+    wiced_hal_i2c_write( &i2cReg , sizeof( i2cReg ), I2C_ADDRESS );
+
+    for(;;)
+    {
+        /* Read button values and mask out just the CapSense buttons */
+        wiced_hal_i2c_read( &i2cReg , sizeof( i2cReg ), I2C_ADDRESS );
+        buttonVal = i2cReg & CAPSENSE_MASK;
+
+        if(prevVal != buttonVal) /* Only print if value has changed since last time */
+        {
+            WICED_BT_TRACE( "Button State: %02X\n\r", buttonVal);
+            ex02_ble_con_capsense_buttons[2] = buttonVal;
+        }
+        prevVal = buttonVal;
+
+        /* Send the thread to sleep for a period of time */
+        wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );
+    }
+}

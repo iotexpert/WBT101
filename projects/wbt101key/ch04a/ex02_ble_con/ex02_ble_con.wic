@@ -3,8 +3,8 @@
     <Chip>20719</Chip>
     <Designer>WICED 20719-B1</Designer>
     <DeviceSettings>
-        <Name>ex01_ble_adv</Name>
-        <Appearance>Generic Tag</Appearance>
+        <Name>ex02_ble_con</Name>
+        <Appearance>Unknown</Appearance>
         <BluetoothMode>Single Mode LE</BluetoothMode>
         <Button>false</Button>
         <UART>false</UART>
@@ -14,7 +14,7 @@
         <Buzzer>false</Buzzer>
         <Battery>false</Battery>
         <GattConfig>
-            <GattDatabase>Disabled</GattDatabase>
+            <GattDatabase>Enabled</GattDatabase>
         </GattConfig>
         <ClassOfDevice>
             <ServiceClass>
@@ -46,7 +46,7 @@
             <Description/>
             <DataType>org.bluetooth.characteristic.gap.device_name</DataType>
             <Size>12</Size>
-            <InitialValue>ex01_ble_adv</InitialValue>
+            <InitialValue>ex02_ble_con</InitialValue>
             <Properties>
                 <Read type="Mandatory">true</Read>
                 <Write type="Optional">false</Write>
@@ -74,7 +74,7 @@
             <Description>The external appearance of this device. The values are composed of a category (10-bits) and sub-categories (6-bits).</Description>
             <DataType>org.bluetooth.characteristic.gap.appearance</DataType>
             <Size>2</Size>
-            <InitialValue>00 02</InitialValue>
+            <InitialValue>00 00</InitialValue>
             <Properties>
                 <Read type="Mandatory">true</Read>
                 <Write type="Excluded">false</Write>
@@ -85,6 +85,33 @@
                 <Indicate type="Excluded">false</Indicate>
                 <WritableAuxiliaries type="Excluded">false</WritableAuxiliaries>
                 <Broadcast type="Excluded">false</Broadcast>
+            </Properties>
+            <Permissions>
+                <VariableLength>false</VariableLength>
+                <Read>true</Read>
+                <Write>false</Write>
+                <WriteWithoutResponse>false</WriteWithoutResponse>
+                <AuthenticatedRead>false</AuthenticatedRead>
+                <ReliableWrite>false</ReliableWrite>
+                <AuthenticatedWrite>false</AuthenticatedWrite>
+            </Permissions>
+        </Characteristic>
+    </Service>
+    <Service predefined="false" primary="true">
+        <Name>CapSense</Name>
+        <Uuid>31 01 9B 5F 80 00 00 80 00 10 00 00 B5 CA 03 00</Uuid>
+        <Description>Vendor Specific Service: CapSense</Description>
+        <Characteristic mandatory="false" predefined="false">
+            <Name>Buttons</Name>
+            <Uuid>31 01 9B 5F 80 00 00 80 00 10 00 00 A3 CA 03 00</Uuid>
+            <Description>Vendor Specific Characteristic: Buttons</Description>
+            <DataType/>
+            <Size>3</Size>
+            <InitialValue>04 00 00</InitialValue>
+            <Properties>
+                <Read>true</Read>
+                <Notify>false</Notify>
+                <Indicate>false</Indicate>
             </Properties>
             <Permissions>
                 <VariableLength>false</VariableLength>

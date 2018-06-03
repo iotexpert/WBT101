@@ -1,3 +1,3 @@
-APP_SRC +=  ex06_i2cwrite.c
+APP_SRC +=  ex08_i2cread_sensors.c
 
 C_FLAGS += -DWICED_BT_TRACE_ENABLE
