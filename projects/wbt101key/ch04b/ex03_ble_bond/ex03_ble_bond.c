@@ -51,8 +51,10 @@ extern const wiced_bt_cfg_buf_pool_t wiced_bt_cfg_buf_pools[WICED_BT_CFG_NUM_BUF
 static wiced_transport_buffer_pool_t* transport_pool = NULL;
 
 uint16_t connection_id = 0;
+wiced_bool_t bond_mode = WICED_TRUE; // If true we will go into bonding mode. This will be set false if pre-existing bonding info is available
 
 wiced_thread_t * i2c_thread;
+wiced_thread_t * led_thread;
 
 /* Host information saved in  NVRAM */
 struct
@@ -80,6 +82,8 @@ static uint32_t               hci_control_process_rx_cmd          ( uint8_t* p_d
 static void                   ex03_ble_bond_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
 void i2c_read( uint32_t arg );      // Thread to read the CapSense button states
+void bonding_led( uint32_t arg );   // Thread to blink LED when in bonding mode
+void button_cback( void *data, uint8_t port_pin );  // Button ISR to enter bonding mode
 
 /*******************************************************************
  * Macro Definitions
@@ -182,7 +186,7 @@ void ex03_ble_bond_app_init(void)
     ex03_ble_bond_set_advertisement_data();
 
     /* Load the address resolution DB with the keys stored in the NVRAM */
-    /* If no client has connected previously, then this read will fail */
+    /* If no client has bonded previously, then this read will fail */
     memset( &link_keys, 0, sizeof(wiced_bt_device_link_keys_t));
     p = (uint8_t*)&link_keys;
     wiced_hal_read_nvram( WICED_NVRAM_PAIRED_KEYS, sizeof(wiced_bt_device_link_keys_t), p, &result);
@@ -190,6 +194,7 @@ void ex03_ble_bond_app_init(void)
     {
         result = wiced_bt_dev_add_device_to_address_resolution_db ( &link_keys );
         WICED_BT_TRACE("\tRead paired keys from NVSRAM and add to address resolution %B result:%d \r\n", p, result );
+        bond_mode = WICED_FALSE; /* We have bonding information already, so don't go into bonding mode */
     }
 
     /* Register with stack to receive GATT callback */
@@ -216,6 +221,16 @@ void ex03_ble_bond_app_init(void)
              i2c_read,                       // Function
              THREAD_STACK_MIN_SIZE,          // Stack
              NULL );                         // Function argument
+
+     /* Start a thread to blink LED if we are not already bonded (i.e. we are in bonding mode) */
+      led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
+      wiced_rtos_init_thread(
+              led_thread,                     // Thread handle
+              PRIORITY_MEDIUM,                // Priority
+              "LED",                          // Name
+              bonding_led,                    // Function
+              THREAD_STACK_MIN_SIZE,          // Stack
+              NULL );                         // Function argument
 }
 
 /* Set Advertisement Data */
@@ -306,8 +321,16 @@ wiced_bt_dev_status_t ex03_ble_bond_management_callback( wiced_bt_management_evt
         break;
     case BTM_SECURITY_REQUEST_EVT:
         /* Security Request */
-        WICED_BT_TRACE("Security Request\n");
-        wiced_bt_ble_security_grant(p_event_data->security_request.bd_addr, WICED_BT_SUCCESS);
+        /* Only grant if we are in bonding mode */
+        if(bond_mode == WICED_TRUE)
+        {
+            WICED_BT_TRACE("Security Request Granted\n");
+            wiced_bt_ble_security_grant(p_event_data->security_request.bd_addr, WICED_BT_SUCCESS);
+        }
+        else
+        {
+            WICED_BT_TRACE("Security Request Denied - not in bonding mode\n");
+        }
         break;
     case BTM_PAIRING_IO_CAPABILITIES_BLE_REQUEST_EVT:
         /* Request for Pairing IO Capabilities (BLE) */
@@ -326,24 +349,27 @@ wiced_bt_dev_status_t ex03_ble_bond_management_callback( wiced_bt_management_evt
         WICED_BT_TRACE("Pairing Complete %d.\n", p_ble_info->reason);
 
         /* Now that pairing is complete, we will save the BDADR of the host to NVRAM */
-        /* Note that the hostinfo.bdaddr was captured in the GATT connect callback function */
+        /* Note that the .bdaddr was captured in the GATT connect callback function */
         if ( p_ble_info->reason == WICED_BT_SUCCESS ) /* Bonding successful */
         {
             /* Write to NVRAM */
             wiced_hal_write_nvram( WICED_NVRAM_VSID_START, sizeof(hostinfo), (uint8_t*)&hostinfo, &status );
-            WICED_BT_TRACE("\tBonding info save to NVRAM\n\r");
+            WICED_BT_TRACE("\tBonding info save to NVRAM: %B\n\r", &hostinfo);
+            bond_mode = WICED_FALSE; // remember that the device is now bonded
         }
         break;
     case BTM_ENCRYPTION_STATUS_EVT:
         /* Encryption Status Change */
         WICED_BT_TRACE("Encryption Status event: bd ( %B ) res %d\n", p_event_data->encryption_status.bd_addr, p_event_data->encryption_status.result);
 
-        /* Connection has been encrypted meaning that we have correct/paired device restore values in the database */
-        wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(hostinfo), (uint8_t*)&hostinfo, &(p_event_data->encryption_status.result) );
-
-        /* Set CCCD value from the value that was previously saved in the NVRAM */
-         ex03_ble_bond_capsense_buttons_client_configuration[0] = hostinfo.characteristic_client_configuration;
-
+        /* Connection has been encrypted and we are already bonded meaning that we have correct/paired device restore values in the database */
+        if(bond_mode == WICED_FALSE)
+        {
+            wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(hostinfo), (uint8_t*)&hostinfo, &(p_event_data->encryption_status.result) );
+            /* Set CCCD value from the value that was previously saved in the NVRAM */
+            ex03_ble_bond_capsense_buttons_client_configuration[0] = hostinfo.characteristic_client_configuration;
+            WICED_BT_TRACE("\tRestored existing bonded device info from NVRAM %B result: %d \n\r", hostinfo.bdaddr);
+        }
         break;
     case BTM_PAIRED_DEVICE_LINK_KEYS_UPDATE_EVT:
         /* save keys to NVRAM if the link is encrypted */
@@ -609,6 +635,8 @@ wiced_bt_gatt_status_t ex03_ble_bond_server_callback( uint16_t conn_id, wiced_bt
 /* GATT Event Handler */
 wiced_bt_gatt_status_t ex03_ble_bond_event_handler( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_event_data )
 {
+    WICED_BT_TRACE( "GATT Callback %d\r\n",event );
+
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
     wiced_bt_gatt_connection_status_t *p_conn_status = NULL;
     wiced_bt_gatt_attribute_request_t *p_attr_req = NULL;
@@ -734,4 +762,49 @@ void i2c_read( uint32_t arg )
         /* Send the thread to sleep for a period of time */
         wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );
     }
+}
+
+/* Thread function to blink LED when in bonding mode */
+void bonding_led( uint32_t arg )
+{
+    /* Thread will delay so that LED will blink every 250ms */
+    #define LED_DELAY_IN_MS          (250)
+
+    for(;;)
+    {
+        /* Blink LED if we are not already bonded */
+        if(bond_mode == WICED_TRUE)
+        {
+            /* Toggle the LED state */
+            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, ! wiced_hal_gpio_get_pin_output( WICED_GPIO_PIN_LED_1 ) );
+        }
+        else /* Turn off the LED if already bonded*/
+        {
+            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, 0);
+        }
+
+        /* Send the thread to sleep for a period of time */
+        wiced_rtos_delay_milliseconds( LED_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );
+    }
+}
+
+/* Interrupt callback function for BUTTON_1  - remove existing bonding info and put into bonding mode */
+void button_cback( void *data, uint8_t port_pin )
+{
+    wiced_result_t                  result;
+    wiced_bt_device_link_keys_t     link_keys;
+    wiced_bt_local_identity_keys_t  local_keys;
+    BD_ADDR                         bonded_address;
+
+    /* Put into bonding mode  */
+    bond_mode = WICED_TRUE;
+
+    /* Remove from the bonded device list */
+    wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(bonded_address), (uint8_t*)&bonded_address, &result );
+    wiced_bt_dev_delete_bonded_device(bonded_address);
+    WICED_BT_TRACE( "Remove host %B from bonded device list \n\r", bonded_address );
+    WICED_BT_TRACE( "Bonding information removed\n\r" );
+
+    /* Clear the GPIO interrupt */
+    wiced_hal_gpio_clear_pin_interrupt_status( WICED_GPIO_PIN_BUTTON_1 );
 }
