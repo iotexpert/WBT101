@@ -30,7 +30,7 @@
 // ----- Characteristic 'Buttons'
 #define HDLC_CAPSENSE_BUTTONS                 0x0029
 #define HDLC_CAPSENSE_BUTTONS_VALUE           0x002A
-// ===== Descriptor 'Client Configuration'
+// ===== CCCD
 #define HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION 0x002B
 
 // External Lookup Table Entry

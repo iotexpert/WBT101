@@ -4,6 +4,10 @@
  *
  */
 
+/** ex04_ble_pass.c
+ *
+ */
+
 #include "wiced.h"
 #include "wiced_bt_dev.h"
 #include "wiced_bt_ble.h"
@@ -20,6 +24,9 @@
 #include "wiced_hal_pspi.h"
 #include "ex04_ble_pass_db.h"
 #include "wiced_bt_cfg.h"
+#include "wiced_bt_stack.h"
+#include "wiced_bt_app_common.h"
+#include "wiced_hal_wdog.h"
 #include "wiced_rtos.h"
 #include "wiced_hal_i2c.h"
 
@@ -49,18 +56,17 @@ extern const wiced_bt_cfg_settings_t wiced_bt_cfg_settings;
 extern const wiced_bt_cfg_buf_pool_t wiced_bt_cfg_buf_pools[WICED_BT_CFG_NUM_BUF_POOLS];
 // Transport pool for sending RFCOMM data to host
 static wiced_transport_buffer_pool_t* transport_pool = NULL;
+wiced_thread_t * i2c_thread;
+wiced_thread_t * led_thread;
 
 uint16_t connection_id = 0;
 wiced_bool_t bond_mode = WICED_TRUE; // If true we will go into bonding mode. This will be set false if pre-existing bonding info is available
-
-wiced_thread_t * i2c_thread;
-wiced_thread_t * led_thread;
 
 /* Host information saved in  NVRAM */
 struct
 {
     BD_ADDR   bdaddr;                               /* BD address of the bonded host so we know if we reconnected to the same device */
-    uint16_t  characteristic_client_configuration;  /* Remember the value of the CCCD (whether notifications were on or off last time we were connected) */
+    uint16_t  cccd;  /* Remember the value of the CCCD (whether notifications were on or off last time we were connected) */
 } __attribute__((packed)) hostinfo;
 
 /*******************************************************************
@@ -81,7 +87,7 @@ static uint32_t               hci_control_process_rx_cmd          ( uint8_t* p_d
 #ifdef HCI_TRACE_OVER_TRANSPORT
 static void                   ex04_ble_pass_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
-void i2c_read( uint32_t arg );      // Thread to read the CapSense button states
+void i2c_read( uint32_t arg );
 void bonding_led( uint32_t arg );   // Thread to blink LED when in bonding mode
 void button_cback( void *data, uint8_t port_pin );  // Button ISR to enter bonding mode
 
@@ -114,10 +120,10 @@ wiced_transport_cfg_t transport_cfg =
 /*******************************************************************
  * GATT Initial Value Arrays
  ******************************************************************/
-uint8_t ex04_ble_pass_generic_access_device_name[]            = {'k','e','y','_','p','a','s','s'};
-uint8_t ex04_ble_pass_generic_access_appearance[]             = {0x00,0x00};
-uint8_t ex04_ble_pass_capsense_buttons[]                      = {0x04,0x00,0x00};
-uint8_t ex04_ble_pass_capsense_buttons_client_configuration[] = {BIT16_TO_8(GATT_CLIENT_CONFIG_NONE)};
+uint8_t ex04_ble_pass_generic_access_device_name[] = {'k','e','y','_','p','a','s','s'};
+uint8_t ex04_ble_pass_generic_access_appearance[]  = {0x00,0x00};
+uint8_t ex04_ble_pass_capsense_buttons[]           = {0x04,0x00,0x00};
+uint8_t ex04_ble_pass_capsense_buttons_cccd[]      = {0x00,0x00};
 
 /*******************************************************************
  * GATT Lookup Table
@@ -131,7 +137,7 @@ gatt_db_lookup_table ex04_ble_pass_gatt_db_ext_attr_tbl[] =
     {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,      12,     12,     ex04_ble_pass_generic_access_device_name},
     {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,       2,      2,      ex04_ble_pass_generic_access_appearance},
     {HDLC_CAPSENSE_BUTTONS_VALUE,                3,      3,      ex04_ble_pass_capsense_buttons},
-    {HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION, 2,      2,      ex04_ble_pass_capsense_buttons_client_configuration},
+    {HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION, 2,      2,      ex04_ble_pass_capsense_buttons_cccd},
 };
 
 // Number of Lookup Table Entries
@@ -182,6 +188,33 @@ void ex04_ble_pass_app_init(void)
     /* Initialize Application */
     wiced_bt_app_init();
 
+    /* Configure the Button GPIO as an input with a resistive pull up and interrupt on rising edge */
+    wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, button_cback, NULL );
+    wiced_hal_gpio_configure_pin( WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE ), GPIO_PIN_OUTPUT_HIGH );
+
+    /* Start a thread to read button values */
+     i2c_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
+     wiced_rtos_init_thread(
+             i2c_thread,                     // Thread handle
+             PRIORITY_MEDIUM,                // Priority
+             "Buttons",                      // Name
+             i2c_read,                       // Function
+             THREAD_STACK_MIN_SIZE,          // Stack
+             NULL );                         // Function argument
+
+     /* Start a thread to blink LED if we are not already bonded (i.e. we are in bonding mode) */
+      led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
+      wiced_rtos_init_thread(
+              led_thread,                     // Thread handle
+              PRIORITY_MEDIUM,                // Priority
+              "LED",                          // Name
+              bonding_led,                    // Function
+              THREAD_STACK_MIN_SIZE,          // Stack
+              NULL );                         // Function argument
+
+    /* Allow peer to pair */
+    wiced_bt_set_pairable_mode(WICED_TRUE, 0);
+
     /* Set Advertisement Data */
     ex04_ble_pass_set_advertisement_data();
 
@@ -207,30 +240,6 @@ void ex04_ble_pass_app_init(void)
      * The corresponding parameters are contained in 'wiced_bt_cfg.c' */
     /* TODO: Make sure that this is the desired behavior. */
     wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
-
-    /* Configure the Button GPIO as an input with a resistive pull up and interrupt on rising edge */
-    wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, button_cback, NULL );
-    wiced_hal_gpio_configure_pin( WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE ), GPIO_PIN_OUTPUT_HIGH );
-
-    /* Start a thread to read button values */
-     i2c_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
-     wiced_rtos_init_thread(
-             i2c_thread,                     // Thread handle
-             PRIORITY_MEDIUM,                // Priority
-             "Buttons",                      // Name
-             i2c_read,                       // Function
-             THREAD_STACK_MIN_SIZE,          // Stack
-             NULL );                         // Function argument
-
-     /* Start a thread to blink LED if we are not already bonded (i.e. we are in bonding mode) */
-      led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
-      wiced_rtos_init_thread(
-              led_thread,                     // Thread handle
-              PRIORITY_MEDIUM,                // Priority
-              "LED",                          // Name
-              bonding_led,                    // Function
-              THREAD_STACK_MIN_SIZE,          // Stack
-              NULL );                         // Function argument
 }
 
 /* Set Advertisement Data */
@@ -239,6 +248,7 @@ void ex04_ble_pass_set_advertisement_data( void )
     wiced_bt_ble_advert_elem_t adv_elem[3] = { 0 };
     uint8_t adv_flag = BTM_BLE_GENERAL_DISCOVERABLE_FLAG | BTM_BLE_BREDR_NOT_SUPPORTED;
     uint8_t num_elem = 0; 
+    uint8_t capsense_service_uuid[LEN_UUID_128] = { __UUID_CAPSENSE };
 
     /* Advertisement Element for Flags */
     adv_elem[num_elem].advert_type = BTM_BLE_ADVERT_TYPE_FLAG;
@@ -253,7 +263,6 @@ void ex04_ble_pass_set_advertisement_data( void )
     num_elem++;
 
     /* Advertisement Element for CapSense Service */
-    uint8_t capsense_service_uuid[LEN_UUID_128] = { __UUID_CAPSENSE };
     adv_elem[num_elem].advert_type = BTM_BLE_ADVERT_TYPE_128SERVICE_DATA;
     adv_elem[num_elem].len = LEN_UUID_128;
     adv_elem[num_elem].p_data = capsense_service_uuid;
@@ -288,7 +297,7 @@ wiced_bt_dev_status_t ex04_ble_pass_management_callback( wiced_bt_management_evt
     wiced_bt_dev_ble_pairing_info_t *p_ble_info = NULL;
     wiced_bt_ble_advert_mode_t *p_adv_mode = NULL;
 
-    WICED_BT_TRACE("**************************** BLE Stack Callback Event: %d ****************************\n", event );
+    WICED_BT_TRACE("*********************** BLE Stack Management Callback Event: %d ***********************\n", event );
 
     switch (event)
     {
@@ -371,7 +380,7 @@ wiced_bt_dev_status_t ex04_ble_pass_management_callback( wiced_bt_management_evt
         {
             wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(hostinfo), (uint8_t*)&hostinfo, &(p_event_data->encryption_status.result) );
             /* Set CCCD value from the value that was previously saved in the NVRAM */
-            ex04_ble_pass_capsense_buttons_client_configuration[0] = hostinfo.characteristic_client_configuration;
+            ex04_ble_pass_capsense_buttons_cccd[0] = hostinfo.cccd;
             WICED_BT_TRACE("\tRestored existing bonded device info from NVRAM %B result: %d \n\r", hostinfo.bdaddr);
         }
         break;
@@ -386,8 +395,8 @@ wiced_bt_dev_status_t ex04_ble_pass_management_callback( wiced_bt_management_evt
         WICED_BT_TRACE("Paired Device Link Request Keys Event\n");
         /* Device/app-specific TODO: HANDLE PAIRED DEVICE LINK REQUEST KEY - retrieve from NVRAM, etc */
         /* read keys from NVRAM */
-        wiced_hal_read_nvram( WICED_NVRAM_PAIRED_KEYS, sizeof(wiced_bt_device_link_keys_t), (uint8_t *) &(p_event_data->paired_device_link_keys_request), &status );
-        WICED_BT_TRACE("\tKeys read from NVRAM %B result: %d \n\r", &(p_event_data->paired_device_link_keys_request), status);
+         wiced_hal_read_nvram( WICED_NVRAM_PAIRED_KEYS, sizeof(wiced_bt_device_link_keys_t), (uint8_t *) &(p_event_data->paired_device_link_keys_request), &status );
+         WICED_BT_TRACE("\tKeys read from NVRAM %B result: %d \n\r", &(p_event_data->paired_device_link_keys_request), status);
         break;
     case BTM_LOCAL_IDENTITY_KEYS_UPDATE_EVT: /* Update of local keys - save to NVSRAM */
             WICED_BT_TRACE( "Local Identity Key Update\n\r");
@@ -420,7 +429,6 @@ wiced_bt_dev_status_t ex04_ble_pass_management_callback( wiced_bt_management_evt
         break;
     }
 
-    /* Return status. This is necessary so that the stack knows if certain events (such as reading keys from NVRAM) were successful */
     return status;
 }
 
@@ -454,8 +462,6 @@ wiced_bt_gatt_status_t ex04_ble_pass_get_value( uint16_t attr_handle, uint16_t c
                 case HDLC_GENERIC_ACCESS_APPEARANCE_VALUE:
                     break;
                 case HDLC_CAPSENSE_BUTTONS_VALUE:
-                    break;
-                case HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION:
                     break;
                 }
             }
@@ -520,7 +526,7 @@ wiced_bt_gatt_status_t ex04_ble_pass_set_value( uint16_t attr_handle, uint16_t c
                     {
                         return WICED_BT_GATT_INVALID_ATTR_LEN;
                     }
-                    hostinfo.characteristic_client_configuration = p_val[0] | ( p_val[1] << 8 );
+                    hostinfo.cccd = p_val[0] | ( p_val[1] << 8 );
 
                     /* Save value to NVRAM */
                     wiced_result_t temp_result;
@@ -593,7 +599,6 @@ wiced_bt_gatt_status_t ex04_ble_pass_connect_callback( wiced_bt_gatt_connection_
 
             /* TODO: Handle the connection */
             connection_id = p_conn_status->conn_id;
-            wiced_bt_set_pairable_mode(WICED_TRUE, 0);
 
             /* Copy address of connected device to the hostinfo structure to be saved in NVRAM when pairing is complete */
             memcpy(hostinfo.bdaddr, p_conn_status->bd_addr, sizeof(BD_ADDR));
@@ -604,13 +609,14 @@ wiced_bt_gatt_status_t ex04_ble_pass_connect_callback( wiced_bt_gatt_connection_
             WICED_BT_TRACE("Disconnected : BDA '%B', Connection ID '%d', Reason '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id, p_conn_status->reason );
 
             /* TODO: Handle the disconnection */
+            /* Clear the connection ID and the bdaddr of the remote */
             connection_id = 0;
             memset( hostinfo.bdaddr, 0, sizeof(BD_ADDR));
-            /* Reset the CCCD value so that on a reconnect CCCD won't be on without pairing */
-            ex04_ble_pass_capsense_buttons_client_configuration[0] = 0;
+            /* Reset the CCCD value so that on a reconnect CCCD will be off */
+            ex04_ble_pass_capsense_buttons_cccd[0] = 0;
 
-            status =  wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
-            WICED_BT_TRACE( "\t\tStart Advertisements: %d\r\n", status );
+            /* restart the advertisements */
+            wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
         }
         status = WICED_BT_GATT_SUCCESS;
     }
@@ -639,11 +645,11 @@ wiced_bt_gatt_status_t ex04_ble_pass_server_callback( uint16_t conn_id, wiced_bt
 /* GATT Event Handler */
 wiced_bt_gatt_status_t ex04_ble_pass_event_handler( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_event_data )
 {
-    WICED_BT_TRACE( "GATT Callback %d\r\n",event );
-
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
     wiced_bt_gatt_connection_status_t *p_conn_status = NULL;
     wiced_bt_gatt_attribute_request_t *p_attr_req = NULL;
+
+    WICED_BT_TRACE("****************** BLE GATT Callback Event: %d ******************\n", event );
 
     switch ( event )
     {
@@ -749,12 +755,10 @@ void i2c_read( uint32_t arg )
         {
             WICED_BT_TRACE( "Button State: %02X\n\r", buttonVal);
             ex04_ble_pass_capsense_buttons[2] = buttonVal;
-
             /* If the connection is up and if the client wants notifications, send it */
             if ( connection_id != 0)
             {
-                /* If client has registered for notifications, send the value */
-                if ( ex04_ble_pass_capsense_buttons_client_configuration[0] & GATT_CLIENT_CONFIG_NOTIFICATION )
+                 if(ex04_ble_pass_capsense_buttons_cccd[0] & GATT_CLIENT_CONFIG_NOTIFICATION)
                 {
                     wiced_bt_gatt_send_notification(connection_id, HDLC_CAPSENSE_BUTTONS_VALUE, sizeof(ex04_ble_pass_capsense_buttons), ex04_ble_pass_capsense_buttons );
                     WICED_BT_TRACE( "\tSend Notification: sending CapSense value\r\n");
@@ -762,7 +766,6 @@ void i2c_read( uint32_t arg )
             }
             prevVal = buttonVal;
         }
-
         /* Send the thread to sleep for a period of time */
         wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );
     }
@@ -809,6 +812,19 @@ void button_cback( void *data, uint8_t port_pin )
     WICED_BT_TRACE( "Remove host %B from bonded device list \n\r", bonded_address );
     WICED_BT_TRACE( "Bonding information removed\n\r" );
 
+    /* Remove device from address resolution database */
+    wiced_hal_read_nvram( WICED_NVRAM_PAIRED_KEYS, sizeof(wiced_bt_device_link_keys_t), (uint8_t*)&link_keys, &result);
+    wiced_bt_dev_remove_device_from_address_resolution_db ( &link_keys );
+
+    /* Remove bonding information from NVRAM */
+    memset( &hostinfo, 0, sizeof(hostinfo));
+    memset( &link_keys, 0, sizeof(wiced_bt_device_link_keys_t));
+    memset( &local_keys, 0, sizeof(wiced_bt_local_identity_keys_t));
+    wiced_hal_write_nvram( WICED_NVRAM_VSID_START, sizeof(hostinfo), (uint8_t*)&hostinfo, &result );
+    wiced_hal_write_nvram ( WICED_NVRAM_PAIRED_KEYS, sizeof( wiced_bt_device_link_keys_t ), (uint8_t*)&link_keys, &result );
+    wiced_hal_write_nvram ( WICED_NVRAM_LOCAL_KEYS, sizeof( wiced_bt_local_identity_keys_t ), (uint8_t*)&local_keys, &result );
+
     /* Clear the GPIO interrupt */
     wiced_hal_gpio_clear_pin_interrupt_status( WICED_GPIO_PIN_BUTTON_1 );
 }
+

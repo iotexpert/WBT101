@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <BLE_Smart_Designer>
-    <Chip>20719</Chip>
+    <Chip>20719-B1</Chip>
     <Designer>WICED 20719-B1</Designer>
     <DeviceSettings>
         <Name>ex02_ble_con</Name>
