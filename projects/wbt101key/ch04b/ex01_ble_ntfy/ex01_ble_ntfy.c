@@ -24,6 +24,9 @@
 #include "wiced_hal_pspi.h"
 #include "ex01_ble_ntfy_db.h"
 #include "wiced_bt_cfg.h"
+#include "wiced_bt_stack.h"
+#include "wiced_bt_app_common.h"
+#include "wiced_hal_wdog.h"
 #include "wiced_rtos.h"
 #include "wiced_hal_i2c.h"
 
@@ -41,7 +44,6 @@
 
 /* Sensible stack size for most threads */
 #define THREAD_STACK_MIN_SIZE       (500)
-
 
 /*******************************************************************
  * Variable Definitions
@@ -73,7 +75,6 @@ static uint32_t               hci_control_process_rx_cmd          ( uint8_t* p_d
 static void                   ex01_ble_ntfy_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
 void i2c_read( uint32_t arg );
-
 
 /*******************************************************************
  * Macro Definitions
@@ -107,7 +108,7 @@ wiced_transport_cfg_t transport_cfg =
 uint8_t ex01_ble_ntfy_generic_access_device_name[] = {'k','e','y','_','n','t','f','y'};
 uint8_t ex01_ble_ntfy_generic_access_appearance[]  = {0x00,0x00};
 uint8_t ex01_ble_ntfy_capsense_buttons[]           = {0x04,0x00,0x00};
-uint8_t ex01_ble_ntfy_capsense_buttons_client_configuration[] = {0x00,0x00};
+uint8_t ex01_ble_ntfy_capsense_buttons_cccd[]      = {0x00,0x00};
 
 /*******************************************************************
  * GATT Lookup Table
@@ -121,8 +122,7 @@ gatt_db_lookup_table ex01_ble_ntfy_gatt_db_ext_attr_tbl[] =
     {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,      12,     12,     ex01_ble_ntfy_generic_access_device_name},
     {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,       2,      2,      ex01_ble_ntfy_generic_access_appearance},
     {HDLC_CAPSENSE_BUTTONS_VALUE,                3,      3,      ex01_ble_ntfy_capsense_buttons},
-    {HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION, 2,      2,      ex01_ble_ntfy_capsense_buttons_client_configuration},
-
+    {HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION, 2,      2,      ex01_ble_ntfy_capsense_buttons_cccd},
 };
 
 // Number of Lookup Table Entries
@@ -177,6 +177,9 @@ void ex01_ble_ntfy_app_init(void)
             i2c_read,                    // Function
             THREAD_STACK_MIN_SIZE,          // Stack
             NULL );                         // Function argument
+
+    /* Allow peer to pair */
+    //wiced_bt_set_pairable_mode(WICED_TRUE, 0);
 
     /* Set Advertisement Data */
     ex01_ble_ntfy_set_advertisement_data();
@@ -502,7 +505,9 @@ wiced_bt_gatt_status_t ex01_ble_ntfy_connect_callback( wiced_bt_gatt_connection_
             /* TODO: Handle the disconnection */
             connection_id = 0;
             /* Reset the CCCD value so that on a reconnect CCCD will be off */
-            ex01_ble_ntfy_capsense_buttons_client_configuration[0] = 0;
+            ex01_ble_ntfy_capsense_buttons_cccd[0] = 0;
+
+            /* restart the advertisements */
             wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
         }
         status = WICED_BT_GATT_SUCCESS;
@@ -640,21 +645,17 @@ void i2c_read( uint32_t arg )
         {
             WICED_BT_TRACE( "Button State: %02X\n\r", buttonVal);
             ex01_ble_ntfy_capsense_buttons[2] = buttonVal;
-
             /* If the connection is up and if the client wants notifications, send it */
             if ( connection_id != 0)
             {
-                /* If client has registered for notifications, send the value */
-                if ( ex01_ble_ntfy_capsense_buttons_client_configuration[0] & GATT_CLIENT_CONFIG_NOTIFICATION )
+                 if(ex01_ble_ntfy_capsense_buttons_cccd[0] & GATT_CLIENT_CONFIG_NOTIFICATION)
                 {
                     wiced_bt_gatt_send_notification(connection_id, HDLC_CAPSENSE_BUTTONS_VALUE, sizeof(ex01_ble_ntfy_capsense_buttons), ex01_ble_ntfy_capsense_buttons );
                     WICED_BT_TRACE( "\tSend Notification: sending CapSense value\r\n");
                 }
             }
-
+            prevVal = buttonVal;
         }
-        prevVal = buttonVal;
-
         /* Send the thread to sleep for a period of time */
         wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );
     }

@@ -24,6 +24,9 @@
 #include "wiced_hal_pspi.h"
 #include "ex02_ble_con_db.h"
 #include "wiced_bt_cfg.h"
+#include "wiced_bt_stack.h"
+#include "wiced_bt_app_common.h"
+#include "wiced_hal_wdog.h"
 #include "wiced_rtos.h"
 #include "wiced_hal_i2c.h"
 
@@ -41,7 +44,6 @@
 
 /* Sensible stack size for most threads */
 #define THREAD_STACK_MIN_SIZE       (500)
-
 
 /*******************************************************************
  * Variable Definitions
@@ -71,7 +73,6 @@ static uint32_t               hci_control_process_rx_cmd          ( uint8_t* p_d
 static void                   ex02_ble_con_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
 void i2c_read( uint32_t arg );
-
 
 /*******************************************************************
  * Macro Definitions
@@ -172,6 +173,9 @@ void ex02_ble_con_app_init(void)
             i2c_read,                    // Function
             THREAD_STACK_MIN_SIZE,          // Stack
             NULL );                         // Function argument
+
+    /* Allow peer to pair */
+    //wiced_bt_set_pairable_mode(WICED_TRUE, 0);
 
     /* Set Advertisement Data */
     ex02_ble_con_set_advertisement_data();
@@ -494,6 +498,8 @@ wiced_bt_gatt_status_t ex02_ble_con_connect_callback( wiced_bt_gatt_connection_s
             WICED_BT_TRACE("Disconnected : BDA '%B', Connection ID '%d', Reason '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id, p_conn_status->reason );
 
             /* TODO: Handle the disconnection */
+
+            /* restart the advertisements */
             wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
         }
         status = WICED_BT_GATT_SUCCESS;

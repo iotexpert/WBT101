@@ -23,6 +23,9 @@
 #include "wiced_transport.h"
 #include "wiced_hal_pspi.h"
 #include "wiced_bt_cfg.h"
+#include "wiced_bt_stack.h"
+#include "wiced_bt_app_common.h"
+#include "wiced_hal_wdog.h"
 
 
 /*******************************************************************
@@ -128,13 +131,16 @@ void ex01_ble_adv_app_init(void)
     wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, button_cback, NULL );
     wiced_hal_gpio_configure_pin( WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE ), GPIO_PIN_OUTPUT_HIGH );
 
+    /* Allow peer to pair */
+    wiced_bt_set_pairable_mode(WICED_TRUE, 0);
+
     /* Set Advertisement Data */
     ex01_ble_adv_set_advertisement_data();
 
     /* Start Undirected LE Advertisements on device startup.
      * The corresponding parameters are contained in 'wiced_bt_cfg.c' */
     /* TODO: Make sure that this is the desired behavior. */
-    wiced_bt_start_advertisements(BTM_BLE_ADVERT_NONCONN_HIGH , 0, NULL);
+    wiced_bt_start_advertisements(BTM_BLE_ADVERT_NONCONN_HIGH, 0, NULL);
 }
 
 /* Set Advertisement Data */
@@ -343,7 +349,6 @@ void ex01_ble_adv_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t lengt
     wiced_transport_send_hci_trace( transport_pool, type, length, p_data );
 }
 #endif
-
 
 /* Interrupt callback function for BUTTON_1 */
 void button_cback( void *data, uint8_t port_pin )
