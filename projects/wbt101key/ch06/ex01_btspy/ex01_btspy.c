@@ -4,7 +4,7 @@
  *
  */
 
-/** ex02_btspy.c
+/** ex01_btspy.c
  *
  */
 
@@ -22,7 +22,7 @@
 #include "hci_control_api.h"
 #include "wiced_transport.h"
 #include "wiced_hal_pspi.h"
-#include "ex02_btspy_db.h"
+#include "ex01_btspy_db.h"
 #include "wiced_bt_cfg.h"
 #include "wiced_bt_stack.h"
 #include "wiced_bt_app_common.h"
@@ -59,20 +59,20 @@ uint16_t connection_id = 0;
 /*******************************************************************
  * Function Prototypes
  ******************************************************************/
-static void                   ex02_btspy_app_init               ( void );
-static wiced_bt_dev_status_t  ex02_btspy_management_callback    ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
-static void                   ex02_btspy_set_advertisement_data ( void );
-static void                   ex02_btspy_advertisement_stopped  ( void );
-static void                   ex02_btspy_reset_device           ( void );
+static void                   ex01_btspy_app_init               ( void );
+static wiced_bt_dev_status_t  ex01_btspy_management_callback    ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
+static void                   ex01_btspy_set_advertisement_data ( void );
+static void                   ex01_btspy_advertisement_stopped  ( void );
+static void                   ex01_btspy_reset_device           ( void );
 /* GATT Registration Callbacks */
-static wiced_bt_gatt_status_t ex02_btspy_write_handler          ( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id );
-static wiced_bt_gatt_status_t ex02_btspy_read_handler           ( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id );
-static wiced_bt_gatt_status_t ex02_btspy_connect_callback       ( wiced_bt_gatt_connection_status_t *p_conn_status );
-static wiced_bt_gatt_status_t ex02_btspy_server_callback        ( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data );
-static wiced_bt_gatt_status_t ex02_btspy_event_handler          ( wiced_bt_gatt_evt_t  event, wiced_bt_gatt_event_data_t *p_event_data );
+static wiced_bt_gatt_status_t ex01_btspy_write_handler          ( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id );
+static wiced_bt_gatt_status_t ex01_btspy_read_handler           ( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id );
+static wiced_bt_gatt_status_t ex01_btspy_connect_callback       ( wiced_bt_gatt_connection_status_t *p_conn_status );
+static wiced_bt_gatt_status_t ex01_btspy_server_callback        ( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data );
+static wiced_bt_gatt_status_t ex01_btspy_event_handler          ( wiced_bt_gatt_evt_t  event, wiced_bt_gatt_event_data_t *p_event_data );
 static uint32_t               hci_control_process_rx_cmd          ( uint8_t* p_data, uint32_t len );
 #ifdef HCI_TRACE_OVER_TRANSPORT
-static void                   ex02_btspy_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
+static void                   ex01_btspy_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
 void i2c_read( uint32_t arg );
 
@@ -105,10 +105,10 @@ wiced_transport_cfg_t transport_cfg =
 /*******************************************************************
  * GATT Initial Value Arrays
  ******************************************************************/
-uint8_t ex02_btspy_generic_access_device_name[] = {'k','e','y','_','s','p','y'};
-uint8_t ex02_btspy_generic_access_appearance[]  = {0x00,0x00};
-uint8_t ex02_btspy_capsense_buttons[]           = {0x04,0x00,0x00};
-uint8_t ex02_btspy_capsense_buttons_cccd[]      = {0x00,0x00};
+uint8_t ex01_btspy_generic_access_device_name[] = {'k','e','y','_','s','p','y'};
+uint8_t ex01_btspy_generic_access_appearance[]  = {0x00,0x00};
+uint8_t ex01_btspy_capsense_buttons[]           = {0x04,0x00,0x00};
+uint8_t ex01_btspy_capsense_buttons_cccd[]      = {0x00,0x00};
 
 /*******************************************************************
  * GATT Lookup Table
@@ -116,17 +116,17 @@ uint8_t ex02_btspy_capsense_buttons_cccd[]      = {0x00,0x00};
 
 /* GATT attribute lookup table                                */
 /* (attributes externally referenced by GATT server database) */
-gatt_db_lookup_table ex02_btspy_gatt_db_ext_attr_tbl[] =
+gatt_db_lookup_table ex01_btspy_gatt_db_ext_attr_tbl[] =
 {
     /* { attribute handle,                       maxlen, curlen, attribute data } */
-    {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,      12,     12,     ex02_btspy_generic_access_device_name},
-    {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,       2,      2,      ex02_btspy_generic_access_appearance},
-    {HDLC_CAPSENSE_BUTTONS_VALUE,                3,      3,      ex02_btspy_capsense_buttons},
-    {HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION, 2,      2,      ex02_btspy_capsense_buttons_cccd},
+    {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,      12,     12,     ex01_btspy_generic_access_device_name},
+    {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,       2,      2,      ex01_btspy_generic_access_appearance},
+    {HDLC_CAPSENSE_BUTTONS_VALUE,                3,      3,      ex01_btspy_capsense_buttons},
+    {HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION, 2,      2,      ex01_btspy_capsense_buttons_cccd},
 };
 
 // Number of Lookup Table Entries
-const uint16_t ex02_btspy_gatt_db_ext_attr_tbl_size = ( sizeof ( ex02_btspy_gatt_db_ext_attr_tbl ) / sizeof ( gatt_db_lookup_table ) );
+const uint16_t ex01_btspy_gatt_db_ext_attr_tbl_size = ( sizeof ( ex01_btspy_gatt_db_ext_attr_tbl ) / sizeof ( gatt_db_lookup_table ) );
 
 /*******************************************************************
  * Function Definitions
@@ -157,13 +157,13 @@ void application_start(void)
 #endif
 
     /* Initialize Bluetooth Controller and Host Stack */
-    wiced_bt_stack_init(ex02_btspy_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
+    wiced_bt_stack_init(ex01_btspy_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
 }
 
 /*
  * This function is executed in the BTM_ENABLED_EVT management callback.
  */
-void ex02_btspy_app_init(void)
+void ex01_btspy_app_init(void)
 {
     /* Initialize Application */
     wiced_bt_app_init();
@@ -182,10 +182,10 @@ void ex02_btspy_app_init(void)
     wiced_bt_set_pairable_mode(WICED_TRUE, 0);
 
     /* Set Advertisement Data */
-    ex02_btspy_set_advertisement_data();
+    ex01_btspy_set_advertisement_data();
 
     /* Register with stack to receive GATT callback */
-    wiced_bt_gatt_register( ex02_btspy_event_handler );
+    wiced_bt_gatt_register( ex01_btspy_event_handler );
 
     /* Initialize GATT Database */
     wiced_bt_gatt_db_init( gatt_database, gatt_database_len );
@@ -197,7 +197,7 @@ void ex02_btspy_app_init(void)
 }
 
 /* Set Advertisement Data */
-void ex02_btspy_set_advertisement_data( void )
+void ex01_btspy_set_advertisement_data( void )
 {
     wiced_bt_ble_advert_elem_t adv_elem[3] = { 0 };
     uint8_t adv_flag = BTM_BLE_GENERAL_DISCOVERABLE_FLAG | BTM_BLE_BREDR_NOT_SUPPORTED;
@@ -227,7 +227,7 @@ void ex02_btspy_set_advertisement_data( void )
 }
 
 /* This function is invoked when advertisements stop */
-void ex02_btspy_advertisement_stopped( void )
+void ex01_btspy_advertisement_stopped( void )
 {
     WICED_BT_TRACE("Advertisement stopped\n");
 
@@ -235,7 +235,7 @@ void ex02_btspy_advertisement_stopped( void )
 }
 
 /* TODO: This function should be called when the device needs to be reset */
-void ex02_btspy_reset_device( void )
+void ex01_btspy_reset_device( void )
 {
     /* TODO: Clear any additional persistent values used by the application from NVRAM */
 
@@ -244,7 +244,7 @@ void ex02_btspy_reset_device( void )
 }
 
 /* Bluetooth Management Event Handler */
-wiced_bt_dev_status_t ex02_btspy_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
+wiced_bt_dev_status_t ex01_btspy_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
     wiced_bt_dev_status_t status = WICED_BT_SUCCESS;
     wiced_bt_device_address_t bda = { 0 };
@@ -260,7 +260,7 @@ wiced_bt_dev_status_t ex02_btspy_management_callback( wiced_bt_management_evt_t 
         // There is a virtual HCI interface between upper layers of the stack and
         // the controller portion of the chip with lower layers of the BT stack.
         // Register with the stack to receive all HCI commands, events and data.
-        wiced_bt_dev_register_hci_trace(ex02_btspy_trace_callback);
+        wiced_bt_dev_register_hci_trace(ex01_btspy_trace_callback);
 #endif
 
         WICED_BT_TRACE("Bluetooth Enabled (%s)\n",
@@ -273,7 +273,7 @@ wiced_bt_dev_status_t ex02_btspy_management_callback( wiced_bt_management_evt_t 
             WICED_BT_TRACE("Local Bluetooth Address: [%B]\n", bda);
 
             /* Perform application-specific initialization */
-            ex02_btspy_app_init();
+            ex01_btspy_app_init();
         }
         break;
     case BTM_DISABLED_EVT:
@@ -310,7 +310,7 @@ wiced_bt_dev_status_t ex02_btspy_management_callback( wiced_bt_management_evt_t 
         WICED_BT_TRACE("Paired Device Link Request Keys Event\n");
         /* Device/app-specific TODO: HANDLE PAIRED DEVICE LINK REQUEST KEY - retrieve from NVRAM, etc */
 #if 0
-        if (ex02_btspy_read_link_keys( &p_event_data->paired_device_link_keys_request ))
+        if (ex01_btspy_read_link_keys( &p_event_data->paired_device_link_keys_request ))
         {
             WICED_BT_TRACE("Key Retrieval Success\n");
         }
@@ -328,7 +328,7 @@ wiced_bt_dev_status_t ex02_btspy_management_callback( wiced_bt_management_evt_t 
         WICED_BT_TRACE("Advertisement State Change: %d\n", *p_adv_mode);
         if ( BTM_BLE_ADVERT_OFF == *p_adv_mode )
         {
-            ex02_btspy_advertisement_stopped();
+            ex01_btspy_advertisement_stopped();
         }
         break;
     case BTM_USER_CONFIRMATION_REQUEST_EVT:
@@ -345,25 +345,25 @@ wiced_bt_dev_status_t ex02_btspy_management_callback( wiced_bt_management_evt_t 
 }
 
 /* Get a Value */
-wiced_bt_gatt_status_t ex02_btspy_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
+wiced_bt_gatt_status_t ex01_btspy_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
 {
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
     // Check for a matching handle entry
-    for (i = 0; i < ex02_btspy_gatt_db_ext_attr_tbl_size; i++)
+    for (i = 0; i < ex01_btspy_gatt_db_ext_attr_tbl_size; i++)
     {
-        if (ex02_btspy_gatt_db_ext_attr_tbl[i].handle == attr_handle)
+        if (ex01_btspy_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
             // Detected a matching handle in external lookup table
             isHandleInTable = WICED_TRUE;
             // Detected a matching handle in the external lookup table
-            if (ex02_btspy_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
+            if (ex01_btspy_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
             {
                 // Value fits within the supplied buffer; copy over the value
-                *p_len = ex02_btspy_gatt_db_ext_attr_tbl[i].cur_len;
-                memcpy(p_val, ex02_btspy_gatt_db_ext_attr_tbl[i].p_data, ex02_btspy_gatt_db_ext_attr_tbl[i].cur_len);
+                *p_len = ex01_btspy_gatt_db_ext_attr_tbl[i].cur_len;
+                memcpy(p_val, ex01_btspy_gatt_db_ext_attr_tbl[i].p_data, ex01_btspy_gatt_db_ext_attr_tbl[i].cur_len);
                 res = WICED_BT_GATT_SUCCESS;
 
                 // TODO: Add code for any action required when this attribute is read
@@ -406,7 +406,7 @@ wiced_bt_gatt_status_t ex02_btspy_get_value( uint16_t attr_handle, uint16_t conn
 }
 
 /* Set a Value */
-wiced_bt_gatt_status_t ex02_btspy_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
+wiced_bt_gatt_status_t ex01_btspy_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
 {
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
@@ -414,19 +414,19 @@ wiced_bt_gatt_status_t ex02_btspy_set_value( uint16_t attr_handle, uint16_t conn
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
     // Check for a matching handle entry
-    for (i = 0; i < ex02_btspy_gatt_db_ext_attr_tbl_size; i++)
+    for (i = 0; i < ex01_btspy_gatt_db_ext_attr_tbl_size; i++)
     {
-        if (ex02_btspy_gatt_db_ext_attr_tbl[i].handle == attr_handle)
+        if (ex01_btspy_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
             // Detected a matching handle in external lookup table
             isHandleInTable = WICED_TRUE;
             // Verify that size constraints have been met
-            validLen = (ex02_btspy_gatt_db_ext_attr_tbl[i].max_len >= len);
+            validLen = (ex01_btspy_gatt_db_ext_attr_tbl[i].max_len >= len);
             if (validLen)
             {
                 // Value fits within the supplied buffer; copy over the value
-                ex02_btspy_gatt_db_ext_attr_tbl[i].cur_len = len;
-                memcpy(ex02_btspy_gatt_db_ext_attr_tbl[i].p_data, p_val, len);
+                ex01_btspy_gatt_db_ext_attr_tbl[i].cur_len = len;
+                memcpy(ex01_btspy_gatt_db_ext_attr_tbl[i].p_data, p_val, len);
                 res = WICED_BT_GATT_SUCCESS;
 
                 // TODO: Add code for any action required when this attribute is written
@@ -461,29 +461,29 @@ wiced_bt_gatt_status_t ex02_btspy_set_value( uint16_t attr_handle, uint16_t conn
 }
 
 /* Handles Write Requests received from Client device */
-wiced_bt_gatt_status_t ex02_btspy_write_handler( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id )
+wiced_bt_gatt_status_t ex01_btspy_write_handler( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_INVALID_HANDLE;
 
     /* Attempt to perform the Write Request */
-    status = ex02_btspy_set_value(p_write_req->handle, conn_id, p_write_req->p_val, p_write_req->val_len);
+    status = ex01_btspy_set_value(p_write_req->handle, conn_id, p_write_req->p_val, p_write_req->val_len);
 
     return status;
 }
 
 /* Handles Read Requests received from Client device */
-wiced_bt_gatt_status_t ex02_btspy_read_handler( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id )
+wiced_bt_gatt_status_t ex01_btspy_read_handler( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_INVALID_HANDLE;
 
     /* Attempt to perform the Read Request */
-    status = ex02_btspy_get_value(p_read_req->handle, conn_id, p_read_req->p_val, *p_read_req->p_val_len, p_read_req->p_val_len);
+    status = ex01_btspy_get_value(p_read_req->handle, conn_id, p_read_req->p_val, *p_read_req->p_val_len, p_read_req->p_val_len);
 
     return status;
 }
 
 /* GATT Connection Status Callback */
-wiced_bt_gatt_status_t ex02_btspy_connect_callback( wiced_bt_gatt_connection_status_t *p_conn_status )
+wiced_bt_gatt_status_t ex01_btspy_connect_callback( wiced_bt_gatt_connection_status_t *p_conn_status )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
 
@@ -505,7 +505,7 @@ wiced_bt_gatt_status_t ex02_btspy_connect_callback( wiced_bt_gatt_connection_sta
             /* TODO: Handle the disconnection */
             connection_id = 0;
             /* Reset the CCCD value so that on a reconnect CCCD will be off */
-            ex02_btspy_capsense_buttons_cccd[0] = 0;
+            ex01_btspy_capsense_buttons_cccd[0] = 0;
 
             /* restart the advertisements */
             wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
@@ -517,17 +517,17 @@ wiced_bt_gatt_status_t ex02_btspy_connect_callback( wiced_bt_gatt_connection_sta
 }
 
 /* GATT Server Event Callback */
-wiced_bt_gatt_status_t ex02_btspy_server_callback( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data )
+wiced_bt_gatt_status_t ex01_btspy_server_callback( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
 
     switch ( type )
     {
     case GATTS_REQ_TYPE_READ:
-        status = ex02_btspy_read_handler( &p_data->read_req, conn_id );
+        status = ex01_btspy_read_handler( &p_data->read_req, conn_id );
         break;
     case GATTS_REQ_TYPE_WRITE:
-        status = ex02_btspy_write_handler( &p_data->write_req, conn_id );
+        status = ex01_btspy_write_handler( &p_data->write_req, conn_id );
         break;
     }
 
@@ -535,7 +535,7 @@ wiced_bt_gatt_status_t ex02_btspy_server_callback( uint16_t conn_id, wiced_bt_ga
 }
 
 /* GATT Event Handler */
-wiced_bt_gatt_status_t ex02_btspy_event_handler( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_event_data )
+wiced_bt_gatt_status_t ex01_btspy_event_handler( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_event_data )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
     wiced_bt_gatt_connection_status_t *p_conn_status = NULL;
@@ -544,11 +544,11 @@ wiced_bt_gatt_status_t ex02_btspy_event_handler( wiced_bt_gatt_evt_t event, wice
     switch ( event )
     {
     case GATT_CONNECTION_STATUS_EVT:
-        status = ex02_btspy_connect_callback( &p_event_data->connection_status );
+        status = ex01_btspy_connect_callback( &p_event_data->connection_status );
         break;
     case GATT_ATTRIBUTE_REQUEST_EVT:
         p_attr_req = &p_event_data->attribute_request;
-        status = ex02_btspy_server_callback( p_attr_req->conn_id, p_attr_req->request_type, &p_attr_req->data );
+        status = ex01_btspy_server_callback( p_attr_req->conn_id, p_attr_req->request_type, &p_attr_req->data );
         break;
     default:
         status = WICED_BT_GATT_SUCCESS;
@@ -605,7 +605,7 @@ uint32_t hci_control_process_rx_cmd( uint8_t* p_data, uint32_t len )
 
 #ifdef HCI_TRACE_OVER_TRANSPORT
 /* Handle Sending of Trace over the Transport */
-void ex02_btspy_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
+void ex01_btspy_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
 {
     wiced_transport_send_hci_trace( transport_pool, type, length, p_data );
 }
@@ -644,13 +644,13 @@ void i2c_read( uint32_t arg )
         if(prevVal != buttonVal) /* Only print if value has changed since last time */
         {
             WICED_BT_TRACE( "Button State: %02X\n\r", buttonVal);
-            ex02_btspy_capsense_buttons[2] = buttonVal;
+            ex01_btspy_capsense_buttons[2] = buttonVal;
             /* If the connection is up and if the client wants notifications, send it */
             if ( connection_id != 0)
             {
-                 if(ex02_btspy_capsense_buttons_cccd[0] & GATT_CLIENT_CONFIG_NOTIFICATION)
+                 if(ex01_btspy_capsense_buttons_cccd[0] & GATT_CLIENT_CONFIG_NOTIFICATION)
                 {
-                    wiced_bt_gatt_send_notification(connection_id, HDLC_CAPSENSE_BUTTONS_VALUE, sizeof(ex02_btspy_capsense_buttons), ex02_btspy_capsense_buttons );
+                    wiced_bt_gatt_send_notification(connection_id, HDLC_CAPSENSE_BUTTONS_VALUE, sizeof(ex01_btspy_capsense_buttons), ex01_btspy_capsense_buttons );
                     WICED_BT_TRACE( "\tSend Notification: sending CapSense value\r\n");
                 }
             }

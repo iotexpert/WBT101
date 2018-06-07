@@ -8,7 +8,7 @@
 
 #include "wiced_bt_uuid.h"
 #include "wiced_bt_gatt.h"
-#include "ex02_btspy_db.h"
+#include "ex01_btspy_db.h"
 
 /*************************************************************************************
 ** GATT server definitions
