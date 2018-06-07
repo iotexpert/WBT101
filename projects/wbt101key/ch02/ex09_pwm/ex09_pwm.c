@@ -3,13 +3,11 @@
 #include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
-#include "wiced_bt_dev.h"
+#include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
 #include "wiced_hal_pwm.h"
 
-
 /*****************************    Constants   *****************************/
-
 /* Thread will delay for 10ms */
 #define THREAD_DELAY_IN_MS          (10)
 
@@ -29,18 +27,14 @@
 #define PWM_INIT                    (PWM_MAX-99)
 #define PWM_TOGGLE                  (PWM_MAX-50)
 
-
 /*****************************    Variables   *****************************/
-
+wiced_thread_t * led_thread;
 
 /*****************************    Function Prototypes   *******************/
-
 wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
 void led_control( uint32_t arg );
 
-
 /*****************************    Functions   *****************************/
-
 /*  Main application. This just starts the BT stack and provides the callback function.
  *  The actual application initialization will happen when stack reports that BT device is ready. */
 APPLICATION_START( )
@@ -54,8 +48,6 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
 {
     wiced_result_t result = WICED_SUCCESS;
 
-    wiced_thread_t * led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
-
     switch( event )
     {
         /* BlueTooth stack enabled */
@@ -66,6 +58,7 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
             wiced_hal_pwm_start( PWM0, LHL_CLK, PWM_TOGGLE, PWM_INIT, 0 );
 
             /* Start a thread to control the PWM */
+            led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
             wiced_rtos_init_thread(
                     led_thread,                     // Thread handle
                     PRIORITY_MEDIUM,                // Priority

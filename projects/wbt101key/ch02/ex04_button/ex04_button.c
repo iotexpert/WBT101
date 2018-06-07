@@ -3,13 +3,11 @@
 #include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
-#include "wiced_bt_dev.h"
+#include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
 #include "wiced_bt_trace.h"
 
-
 /*****************************    Constants   *****************************/
-
 /* Thread will delay for 100ms between button state checks */
 #define THREAD_DELAY_IN_MS         (100)
 
@@ -21,18 +19,15 @@
 /* Sensible stack size for most threads */
 #define THREAD_STACK_MIN_SIZE       (500)
 
-
 /*****************************    Variables   *****************************/
-
+wiced_thread_t * led_thread;
 
 /*****************************    Function Prototypes   *******************/
-
 wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
 void led_control( uint32_t arg );
 
 
 /*****************************    Functions   *****************************/
-
 /*  Main application. This just starts the BT stack and provides the callback function.
  *  The actual application initialization will happen when stack reports that BT device is ready. */
 APPLICATION_START( )
@@ -46,8 +41,6 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
 {
     wiced_result_t result = WICED_SUCCESS;
 
-    wiced_thread_t * led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
-
     switch( event )
     {
         /* BlueTooth stack enabled */
@@ -57,6 +50,7 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
             WICED_BT_TRACE( "*** ex04_button ***\n\r" );
 
             /* Start a thread to control LED blinking */
+            led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
             wiced_rtos_init_thread(
                     led_thread,                     // Thread handle
                     PRIORITY_MEDIUM,                // Priority

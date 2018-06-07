@@ -3,7 +3,7 @@
 #include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
-#include "wiced_bt_dev.h"
+#include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
 #include "wiced_hal_i2c.h"
 #include "wiced_bt_trace.h"
