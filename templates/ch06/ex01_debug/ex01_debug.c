@@ -1,4 +1,4 @@
-/* Blink LED_1 with a frequency of 2 Hz */
+/* Debugging example */
 
 #include "wiced.h"
 #include "wiced_platform.h"
@@ -7,7 +7,7 @@
 #include "wiced_rtos.h"
 
 /*****************************    Constants   *****************************/
-/* Thread will delay for 250ms so that LED frequency will be 500ms = 2 Hz */
+/* Thread will delay for 250ms */
 #define THREAD_DELAY_IN_MS          (250)
 
 /* Useful macros for thread priorities */
@@ -43,12 +43,12 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
     {
         /* BlueTooth stack enabled */
         case BTM_ENABLED_EVT:
-            /* Start a thread to control LED blinking */
+            /* Start a thread to control LED */
             led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
             wiced_rtos_init_thread(
                     led_thread,                     // Thread handle
                     PRIORITY_MEDIUM,                // Priority
-                    "Blinky",                       // Name
+                    "LED",                       // Name
                     led_control,                    // Function
                     THREAD_STACK_MIN_SIZE,          // Stack
                     NULL );                         // Function argument
