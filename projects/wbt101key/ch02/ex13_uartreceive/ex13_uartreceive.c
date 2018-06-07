@@ -3,26 +3,20 @@
 #include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
-#include "wiced_bt_dev.h"
+#include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
 #include "wiced_bt_trace.h"
 #include "wiced_hal_puart.h"
 
-
 /*****************************    Constants   *****************************/
-
 
 /*****************************    Variables   *****************************/
 
-
 /*****************************    Function Prototypes   *******************/
-
 wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
 void rx_cback( void *data );
 
-
 /*****************************    Functions   *****************************/
-
 /*  Main application. This just starts the BT stack and provides the callback function.
  *  The actual application initialization will happen when stack reports that BT device is ready. */
 APPLICATION_START( )
