@@ -64,7 +64,7 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
 /* Thread function to control the LED */
 void led_control( uint32_t arg )
 {
-    uint32_t led = 0; /* This variable never gets set so the LED will always be off */
+    volatile uint32_t led = 0; /* This variable never gets set so the LED will always be off */
 
     for(;;)
     {

@@ -11,14 +11,6 @@
 /* Thread will delay for 250ms so that LED frequency will be 500ms = 2 Hz */
 #define TIMEOUT_IN_MS          (250)
 
-/* Useful macros for thread priorities */
-#define PRIORITY_HIGH               (3)
-#define PRIORITY_MEDIUM             (5)
-#define PRIORITY_LOW                (7)
-
-/* Sensible stack size for most threads */
-#define THREAD_STACK_MIN_SIZE       (500)
-
 /*****************************    Variables   *****************************/
 wiced_timer_t led_timer;
 
@@ -56,7 +48,7 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
 }
 
 
-/* Thread function to control the LED */
+/*  Function to control the LED */
 void led_control( uint32_t arg )
 {
     uint32_t led;
