@@ -8,8 +8,8 @@
  *
  */
 
-#include "../ex04_confirm/spp.h"
-#include "ex04_confirm_sdp_db.h"
+#include "../ex05_multibond/ex05_multibond_sdp_db.h"
+#include "../ex05_multibond/spp.h"
 #include "wiced.h"
 #include "wiced_bt_dev.h"
 #include "wiced_bt_ble.h"
@@ -63,8 +63,16 @@ static void                  testclassicspp_trace_callback      ( wiced_bt_hci_t
 
 static void button_cback(void *,uint8_t);
 
-static int testclassicspp_read_link_keys( wiced_bt_device_link_keys_t *keys );
-static int testclassicspp_write_link_keys( wiced_bt_device_link_keys_t *keys );
+
+/////////////////////// Bonding
+uint8_t numBonded=0;
+// BOND_VSID hold the number of bonded devices
+// Each VSID past there up to BOND_VSID+1+BOND_MAX holds one set of keys
+#define BOND_VSID   WICED_NVRAM_VSID_START
+#define BOND_MAX    8
+static uint32_t testclassicspp_read_link_keys( wiced_bt_device_link_keys_t *keys );
+static wiced_result_t testclassicspp_write_link_keys( wiced_bt_device_link_keys_t *keys );
+void readNumBonded();
 
 
 /*******************************************************************
@@ -122,6 +130,7 @@ void application_start(void)
     //wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_WICED_UART );
 #endif
 
+
     /* Initialize Bluetooth Controller and Host Stack */
     wiced_bt_stack_init(testclassicspp_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
 }
@@ -130,7 +139,7 @@ void application_start(void)
 // If enable/disable is set by the enable function parameter
 void enableDisableButtons(wiced_bool_t enable)
 {
-    if(WICED_TRUE == enable)
+    if(WICED_TRUE)
     {
         wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, button_cback, NULL );
         wiced_hal_gpio_configure_pin( WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE ), GPIO_PIN_OUTPUT_HIGH );
@@ -178,6 +187,9 @@ void testclassicspp_app_init(void)
 {
     /* Initialize Application */
     wiced_bt_app_init();
+
+    // Load number of bonded devices from NVRAM
+    readNumBonded();
 
     /* Allow peer to pair */
     wiced_bt_set_pairable_mode(WICED_TRUE, 0);
@@ -270,10 +282,12 @@ wiced_bt_dev_status_t testclassicspp_management_callback( wiced_bt_management_ev
     case BTM_PAIRING_IO_CAPABILITIES_BR_EDR_REQUEST_EVT:
         /* Request for Pairing IO Capabilities (BR/EDR) */
         WICED_BT_TRACE("BR/EDR Pairing IO cap Request\n");
+
         p_event_data->pairing_io_capabilities_br_edr_request.oob_data = BTM_OOB_NONE;
-        p_event_data->pairing_io_capabilities_br_edr_request.auth_req = BTM_AUTH_SINGLE_PROFILE_GENERAL_BONDING_YES;
+        p_event_data->pairing_io_capabilities_br_edr_request.auth_req = BTM_AUTH_SINGLE_PROFILE_GENERAL_BONDING_NO;
         p_event_data->pairing_io_capabilities_br_edr_request.is_orig = WICED_FALSE;
         p_event_data->pairing_io_capabilities_br_edr_request.local_io_cap = BTM_IO_CAPABILITIES_DISPLAY_AND_YES_NO_INPUT;
+
         break;
 
     case BTM_USER_CONFIRMATION_REQUEST_EVT:
@@ -300,7 +314,7 @@ wiced_bt_dev_status_t testclassicspp_management_callback( wiced_bt_management_ev
         WICED_BT_TRACE("Paired Device Link Request Keys Event\n");
         /* Device/app-specific TODO: HANDLE PAIRED DEVICE LINK REQUEST KEY - retrieve from NVRAM, etc */
 #if 1
-        if (testclassicspp_read_link_keys( &p_event_data->paired_device_link_keys_request ))
+        if (testclassicspp_read_link_keys( &p_event_data->paired_device_link_keys_request ) <= WICED_NVRAM_VSID_END)
         {
             WICED_BT_TRACE("Key Retrieval Success\n");
         }
@@ -326,33 +340,116 @@ wiced_bt_dev_status_t testclassicspp_management_callback( wiced_bt_management_ev
     return status;
 }
 
+// readNumBonded - returns the number of devices bonded.  The number is a uint8_t that is stored in the first VSID
+// If there is nothing stored in the first VSID then it initializes that number to 0
+//
+void readNumBonded()
+{
+    int bytes_read;
+    wiced_result_t result;
+    uint8_t count;
 
-// This function reads the first VSID row into the link keys
-int testclassicspp_read_link_keys( wiced_bt_device_link_keys_t *keys )
+    bytes_read = wiced_hal_read_nvram(BOND_VSID,sizeof(uint8_t),&numBonded,&result);
+
+    if(result != WICED_SUCCESS)
+    {
+        WICED_BT_TRACE("Initializing bonding table\n");
+        numBonded = 0;
+        wiced_hal_write_nvram(BOND_VSID, sizeof(uint8_t),&numBonded, &result);
+    }
+
+    WICED_BT_TRACE("Read Number bonded = %d\n",numBonded);
+}
+
+// This function saves the global variable numBonded to BOND_VSID
+void saveNumBonded()
+{
+    WICED_BT_TRACE("Updating Bonding Count = %d\n",numBonded);
+    wiced_result_t result;
+    wiced_hal_write_nvram(BOND_VSID, sizeof(uint8_t), (uint8_t*)&numBonded, &result);
+}
+
+// This function dumps a print of all of the keys to the BT Trace UART
+void dumpLinkKeys()
+{
+        wiced_result_t result;
+        int bytes_read;
+        wiced_bt_device_link_keys_t tempKeys;
+
+        WICED_BT_TRACE("-----------------\nDumping Link Keys Table\n");
+        for(uint32_t i=0;i<numBonded;i++)
+        {
+          bytes_read = wiced_hal_read_nvram(BOND_VSID+1+i,sizeof(wiced_bt_device_link_keys_t),
+                (uint8_t *)&tempKeys,&result);
+
+          WICED_BT_TRACE("Read keys for %B in VSID=%d Result=%d ByteRead=%d\n",tempKeys.bd_addr,BOND_VSID+1+i,result,bytes_read);
+
+        }
+        WICED_BT_TRACE("----------------\n");
+}
+
+
+// This function reads the link keys into keys and returns the VSID that hold it
+uint32_t testclassicspp_read_link_keys( wiced_bt_device_link_keys_t *keys )
 {
 
     wiced_result_t result;
     int bytes_read;
+    wiced_bt_device_link_keys_t tempKeys;
 
-    bytes_read = wiced_hal_read_nvram(WICED_NVRAM_VSID_START,sizeof(wiced_bt_device_link_keys_t),
-            (uint8_t *)keys,&result);
-    WICED_BT_TRACE("NVRAM ID:%d read :%d bytes result:%d\n", WICED_NVRAM_VSID_START, bytes_read, result);
+    WICED_BT_TRACE("Searching for Link Keys %B\n",keys->bd_addr);
 
-    return bytes_read;
+    for(uint32_t i=0;i<numBonded;i++)
+    {
+      bytes_read = wiced_hal_read_nvram(BOND_VSID+1+i,sizeof(wiced_bt_device_link_keys_t),
+            (uint8_t *)&tempKeys,&result);
+
+      WICED_BT_TRACE("Read keys for %B\n",tempKeys.bd_addr);
+
+      if(memcmp(keys->bd_addr,tempKeys.bd_addr,sizeof(wiced_bt_device_address_t)) == 0)
+      {
+          memcpy(keys,&tempKeys,sizeof(wiced_bt_device_link_keys_t));
+          WICED_BT_TRACE("Found Keys Match VSID=%d\n", BOND_VSID+1+i);
+          return BOND_VSID+1+i;
+      }
+    }
+    WICED_BT_TRACE("Failed to find Link Keys\n");
+    return WICED_NVRAM_VSID_END+1;
 
 }
 
 // This function write the link keys into the first VSID row
-int testclassicspp_write_link_keys( wiced_bt_device_link_keys_t *keys )
+wiced_result_t testclassicspp_write_link_keys( wiced_bt_device_link_keys_t *keys )
 {
+    wiced_bt_device_link_keys_t tempKeys;
+
+    memcpy(&tempKeys.bd_addr,keys->bd_addr,sizeof(wiced_bt_device_address_t));
+
+    uint32_t vsid = testclassicspp_read_link_keys(&tempKeys);
+    if(vsid>WICED_NVRAM_VSID_END)
+    {
+        vsid = numBonded + BOND_VSID+1;
+        numBonded = numBonded + 1;
+        if(numBonded > BOND_MAX)
+        {
+            WICED_BT_TRACE("Bonding Table Full\n");
+            return WICED_ERROR;
+        }
+        saveNumBonded(numBonded);
+    }
+
+
+    WICED_BT_TRACE("Writing Link Keys for %B Current Bonded =%d VSID=%d\n",keys->bd_addr,numBonded,vsid);
 
     wiced_result_t  result;
-    int   bytes_written = wiced_hal_write_nvram(WICED_NVRAM_VSID_START, sizeof(wiced_bt_device_link_keys_t),
+    int   bytes_written = wiced_hal_write_nvram(vsid, sizeof(wiced_bt_device_link_keys_t),
             (uint8_t*)keys, &result);
 
-       WICED_BT_TRACE("NVRAM ID:%d written :%d bytes result:%d\n", WICED_NVRAM_VSID_START, bytes_written, result);
-       return (bytes_written);
+    dumpLinkKeys();
+    return result;
 }
+
+
 
 
 
