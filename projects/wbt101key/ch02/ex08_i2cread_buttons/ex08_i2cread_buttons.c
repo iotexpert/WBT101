@@ -1,16 +1,14 @@
-/* Monitor BUTTON_1 every 100ms and set LED_1 based on the button's state */
+/* Read CapSense buttons from the PSoC every 100ms and display to the PUART */
 
 #include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
+#include "wiced_hal_i2c.h"
 #include "wiced_bt_trace.h"
 
 /*****************************    Constants   *****************************/
-/* Thread will delay for 100ms between button state checks */
-#define THREAD_DELAY_IN_MS         (100)
-
 /* Useful macros for thread priorities */
 #define PRIORITY_HIGH               (3)
 #define PRIORITY_MEDIUM             (5)
@@ -20,12 +18,11 @@
 #define THREAD_STACK_MIN_SIZE       (500)
 
 /*****************************    Variables   *****************************/
-wiced_thread_t * led_thread;
+wiced_thread_t * i2c_thread;
 
 /*****************************    Function Prototypes   *******************/
 wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
-void led_control( uint32_t arg );
-
+void i2c_read( uint32_t arg );
 
 /*****************************    Functions   *****************************/
 /*  Main application. This just starts the BT stack and provides the callback function.
@@ -45,17 +42,15 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
     {
         /* BlueTooth stack enabled */
         case BTM_ENABLED_EVT:
-
             wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
-            WICED_BT_TRACE( "*** ex04_button ***\n\r" );
 
-            /* Start a thread to control LED blinking */
-            led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
+            /* Start a thread to read button values */
+            i2c_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
             wiced_rtos_init_thread(
-                    led_thread,                     // Thread handle
+                    i2c_thread,                  // Thread handle
                     PRIORITY_MEDIUM,                // Priority
-                    "Blinky",                       // Name
-                    led_control,                    // Function
+                    "Buttons",                      // Name
+                    i2c_read,                    // Function
                     THREAD_STACK_MIN_SIZE,          // Stack
                     NULL );                         // Function argument
             break;
@@ -67,23 +62,40 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
 }
 
 
-/* Thread function to monitor BUTTON_1 and update LED_1 */
-void led_control( uint32_t arg )
+/* Thread function to read button values from PSoC */
+void i2c_read( uint32_t arg )
 {
+    /* Thread will delay so that button values are read every 100ms */
+    #define THREAD_DELAY_IN_MS          (100)
+
+    /* I2C address and register locations inside the PSoC and a mask for just CapSense buttons */
+    #define I2C_ADDRESS        (0x42)
+    #define BUTTON_REG         (0x06)
+    #define CAPSENSE_MASK      (0x0F)
+
+    char i2cReg;               // I2C Read register
+    char buttonVal;            // Button value
+    char prevVal = 0x00;       // Previous button value
+
+    /* Configure I2C block */
+    wiced_hal_i2c_init();
+    wiced_hal_i2c_set_speed( I2CM_SPEED_400KHZ );
+
+    /* Write the offset to allow reading of the button register */
+    i2cReg = BUTTON_REG;
+    wiced_hal_i2c_write( &i2cReg , sizeof( i2cReg ), I2C_ADDRESS );
+
     for(;;)
     {
-        if( 0 == wiced_hal_gpio_get_pin_input_status( WICED_GPIO_PIN_BUTTON_1 ) )
+        /* Read button values and mask out just the CapSense buttons */
+        wiced_hal_i2c_read( &i2cReg , sizeof( i2cReg ), I2C_ADDRESS );
+        buttonVal = i2cReg & CAPSENSE_MASK;
+
+        if(prevVal != buttonVal) /* Only print if value has changed since last time */
         {
-            /* Drive LED HIGH */
-            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_2, GPIO_PIN_OUTPUT_HIGH );
-            WICED_BT_TRACE( "LED_HIGH\n\r" );
+            WICED_BT_TRACE( "Button State: %02X\n\r", buttonVal);
         }
-        else
-        {
-            /* Drive LED LOW */
-            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_2, GPIO_PIN_OUTPUT_LOW );
-            WICED_BT_TRACE( "LED_LOW\n\r" );
-        }
+        prevVal = buttonVal;
 
         /* Send the thread to sleep for a period of time */
         wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );

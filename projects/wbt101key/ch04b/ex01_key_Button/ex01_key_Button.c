@@ -4,7 +4,7 @@
  *
  */
 
-/** WicedButton.c
+/** key_Button.c
  *
  */
 
@@ -22,12 +22,11 @@
 #include "hci_control_api.h"
 #include "wiced_transport.h"
 #include "wiced_hal_pspi.h"
-#include "WicedButton_db.h"
+#include "ex01_key_Button_db.h"
 #include "wiced_bt_cfg.h"
 #include "wiced_bt_stack.h"
 #include "wiced_bt_app_common.h"
 #include "wiced_hal_wdog.h"
-
 
 /*******************************************************************
  * Constant Definitions
@@ -48,20 +47,20 @@ uint16_t connection_id = 0;
 /*******************************************************************
  * Function Prototypes
  ******************************************************************/
-static void                   wicedbutton_app_init               ( void );
-static wiced_bt_dev_status_t  wicedbutton_management_callback    ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
-static void                   wicedbutton_set_advertisement_data ( void );
-static void                   wicedbutton_advertisement_stopped  ( void );
-static void                   wicedbutton_reset_device           ( void );
+static void                   key_button_app_init               ( void );
+static wiced_bt_dev_status_t  key_button_management_callback    ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
+static void                   key_button_set_advertisement_data ( void );
+static void                   key_button_advertisement_stopped  ( void );
+static void                   key_button_reset_device           ( void );
 /* GATT Registration Callbacks */
-static wiced_bt_gatt_status_t wicedbutton_write_handler          ( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id );
-static wiced_bt_gatt_status_t wicedbutton_read_handler           ( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id );
-static wiced_bt_gatt_status_t wicedbutton_connect_callback       ( wiced_bt_gatt_connection_status_t *p_conn_status );
-static wiced_bt_gatt_status_t wicedbutton_server_callback        ( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data );
-static wiced_bt_gatt_status_t wicedbutton_event_handler          ( wiced_bt_gatt_evt_t  event, wiced_bt_gatt_event_data_t *p_event_data );
-static uint32_t               hci_control_process_rx_cmd         ( uint8_t* p_data, uint32_t len );
+static wiced_bt_gatt_status_t key_button_write_handler          ( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id );
+static wiced_bt_gatt_status_t key_button_read_handler           ( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id );
+static wiced_bt_gatt_status_t key_button_connect_callback       ( wiced_bt_gatt_connection_status_t *p_conn_status );
+static wiced_bt_gatt_status_t key_button_server_callback        ( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data );
+static wiced_bt_gatt_status_t key_button_event_handler          ( wiced_bt_gatt_evt_t  event, wiced_bt_gatt_event_data_t *p_event_data );
+static uint32_t               hci_control_process_rx_cmd        ( uint8_t* p_data, uint32_t len );
 #ifdef HCI_TRACE_OVER_TRANSPORT
-static void                   wicedbutton_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
+static void                   key_button_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
 void button_cback( void *data, uint8_t port_pin );
 
@@ -94,11 +93,11 @@ wiced_transport_cfg_t transport_cfg =
 /*******************************************************************
  * GATT Initial Value Arrays
  ******************************************************************/
-uint8_t wicedbutton_generic_access_device_name[]           = {'W','i','c','e','d','B','u','t','t','o','n'};
-uint8_t wicedbutton_generic_access_appearance[]            = {0x00,0x00};
-uint8_t wicedbutton_wicedbutton_mb1[]                      = {0x00};
-uint8_t wicedbutton_wicedbutton_mb1_user_description[]     = {'M','e','c','h','a','n','i','c','a','l',' ','B','u','t','t','o','n',' ','1',' ','S','t','a','t','e'};
-uint8_t wicedbutton_wicedbutton_mb1_client_configuration[] = {BIT16_TO_8(GATT_CLIENT_CONFIG_NONE)};
+uint8_t key_button_generic_access_device_name[]           = {'k','e','y','_','B','u','t','t','o','n'};
+uint8_t key_button_generic_access_appearance[]            = {0x00,0x00};
+uint8_t key_button_wicedbutton_mb1[]                      = {0x00};
+uint8_t key_button_wicedbutton_mb1_user_description[]     = {'M','e','c','h','a','n','i','c','a','l',' ','B','u','t','t','o','n',' ','1',' ','C','o','u','n','t'};
+uint8_t key_button_wicedbutton_mb1_client_configuration[] = {BIT16_TO_8(GATT_CLIENT_CONFIG_NONE)};
 
 /*******************************************************************
  * GATT Lookup Table
@@ -106,18 +105,18 @@ uint8_t wicedbutton_wicedbutton_mb1_client_configuration[] = {BIT16_TO_8(GATT_CL
 
 /* GATT attribute lookup table                                */
 /* (attributes externally referenced by GATT server database) */
-gatt_db_lookup_table wicedbutton_gatt_db_ext_attr_tbl[] =
+gatt_db_lookup_table key_button_gatt_db_ext_attr_tbl[] =
 {
-    /* { attribute handle,                      maxlen,                                               curlen,                                               attribute data } */
-    {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,     11,                                                   11,                                                   wicedbutton_generic_access_device_name},
-    {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,      2,                                                    2,                                                    wicedbutton_generic_access_appearance},
-    {HDLC_WICEDBUTTON_MB1_VALUE,                1,                                                    1,                                                    wicedbutton_wicedbutton_mb1},
-    {HDLD_WICEDBUTTON_MB1_USER_DESCRIPTION,     sizeof(wicedbutton_wicedbutton_mb1_user_description), sizeof(wicedbutton_wicedbutton_mb1_user_description), wicedbutton_wicedbutton_mb1_user_description},
-    {HDLD_WICEDBUTTON_MB1_CLIENT_CONFIGURATION, 2,                                                    2,                                                    wicedbutton_wicedbutton_mb1_client_configuration},
+    /* { attribute handle,                      maxlen,                                              curlen,                                              attribute data } */
+    {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,     10,                                                  10,                                                  key_button_generic_access_device_name},
+    {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,      2,                                                   2,                                                   key_button_generic_access_appearance},
+    {HDLC_WICEDBUTTON_MB1_VALUE,                1,                                                   1,                                                   key_button_wicedbutton_mb1},
+    {HDLD_WICEDBUTTON_MB1_USER_DESCRIPTION,     sizeof(key_button_wicedbutton_mb1_user_description), sizeof(key_button_wicedbutton_mb1_user_description), key_button_wicedbutton_mb1_user_description},
+    {HDLD_WICEDBUTTON_MB1_CLIENT_CONFIGURATION, 2,                                                   2,                                                   key_button_wicedbutton_mb1_client_configuration},
 };
 
 // Number of Lookup Table Entries
-const uint16_t wicedbutton_gatt_db_ext_attr_tbl_size = ( sizeof ( wicedbutton_gatt_db_ext_attr_tbl ) / sizeof ( gatt_db_lookup_table ) );
+const uint16_t key_button_gatt_db_ext_attr_tbl_size = ( sizeof ( key_button_gatt_db_ext_attr_tbl ) / sizeof ( gatt_db_lookup_table ) );
 
 /*******************************************************************
  * Function Definitions
@@ -144,17 +143,17 @@ void application_start(void)
     wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
 
     /* Set the Debug UART as WICED_ROUTE_DEBUG_TO_WICED_UART to send debug strings over the WICED debug interface */
-    //wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_WICED_UART );
+    // wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_WICED_UART );
 #endif
 
     /* Initialize Bluetooth Controller and Host Stack */
-    wiced_bt_stack_init(wicedbutton_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
+    wiced_bt_stack_init(key_button_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
 }
 
 /*
  * This function is executed in the BTM_ENABLED_EVT management callback.
  */
-void wicedbutton_app_init(void)
+void key_button_app_init(void)
 {
     /* Initialize Application */
     wiced_bt_app_init();
@@ -169,10 +168,10 @@ void wicedbutton_app_init(void)
     wiced_bt_set_pairable_mode(WICED_TRUE, 0);
 
     /* Set Advertisement Data */
-    wicedbutton_set_advertisement_data();
+    key_button_set_advertisement_data();
 
     /* Register with stack to receive GATT callback */
-    wiced_bt_gatt_register( wicedbutton_event_handler );
+    wiced_bt_gatt_register( key_button_event_handler );
 
     /* Initialize GATT Database */
     wiced_bt_gatt_db_init( gatt_database, gatt_database_len );
@@ -184,7 +183,7 @@ void wicedbutton_app_init(void)
 }
 
 /* Set Advertisement Data */
-void wicedbutton_set_advertisement_data( void )
+void key_button_set_advertisement_data( void )
 {
     wiced_bt_ble_advert_elem_t adv_elem[2] = { 0 };
     uint8_t adv_flag = BTM_BLE_GENERAL_DISCOVERABLE_FLAG | BTM_BLE_BREDR_NOT_SUPPORTED;
@@ -207,7 +206,7 @@ void wicedbutton_set_advertisement_data( void )
 }
 
 /* This function is invoked when advertisements stop */
-void wicedbutton_advertisement_stopped( void )
+void key_button_advertisement_stopped( void )
 {
     WICED_BT_TRACE("Advertisement stopped\n");
 
@@ -215,7 +214,7 @@ void wicedbutton_advertisement_stopped( void )
 }
 
 /* TODO: This function should be called when the device needs to be reset */
-void wicedbutton_reset_device( void )
+void key_button_reset_device( void )
 {
     /* TODO: Clear any additional persistent values used by the application from NVRAM */
 
@@ -224,7 +223,7 @@ void wicedbutton_reset_device( void )
 }
 
 /* Bluetooth Management Event Handler */
-wiced_bt_dev_status_t wicedbutton_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
+wiced_bt_dev_status_t key_button_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
     wiced_bt_dev_status_t status = WICED_BT_SUCCESS;
     wiced_bt_device_address_t bda = { 0 };
@@ -240,7 +239,7 @@ wiced_bt_dev_status_t wicedbutton_management_callback( wiced_bt_management_evt_t
         // There is a virtual HCI interface between upper layers of the stack and
         // the controller portion of the chip with lower layers of the BT stack.
         // Register with the stack to receive all HCI commands, events and data.
-        wiced_bt_dev_register_hci_trace(wicedbutton_trace_callback);
+        wiced_bt_dev_register_hci_trace(key_button_trace_callback);
 #endif
 
         WICED_BT_TRACE("Bluetooth Enabled (%s)\n",
@@ -253,7 +252,7 @@ wiced_bt_dev_status_t wicedbutton_management_callback( wiced_bt_management_evt_t
             WICED_BT_TRACE("Local Bluetooth Address: [%B]\n", bda);
 
             /* Perform application-specific initialization */
-            wicedbutton_app_init();
+            key_button_app_init();
         }
         break;
     case BTM_DISABLED_EVT:
@@ -290,7 +289,7 @@ wiced_bt_dev_status_t wicedbutton_management_callback( wiced_bt_management_evt_t
         WICED_BT_TRACE("Paired Device Link Request Keys Event\n");
         /* Device/app-specific TODO: HANDLE PAIRED DEVICE LINK REQUEST KEY - retrieve from NVRAM, etc */
 #if 0
-        if (wicedbutton_read_link_keys( &p_event_data->paired_device_link_keys_request ))
+        if (key_button_read_link_keys( &p_event_data->paired_device_link_keys_request ))
         {
             WICED_BT_TRACE("Key Retrieval Success\n");
         }
@@ -308,7 +307,7 @@ wiced_bt_dev_status_t wicedbutton_management_callback( wiced_bt_management_evt_t
         WICED_BT_TRACE("Advertisement State Change: %d\n", *p_adv_mode);
         if ( BTM_BLE_ADVERT_OFF == *p_adv_mode )
         {
-            wicedbutton_advertisement_stopped();
+            key_button_advertisement_stopped();
         }
         break;
     case BTM_USER_CONFIRMATION_REQUEST_EVT:
@@ -325,25 +324,25 @@ wiced_bt_dev_status_t wicedbutton_management_callback( wiced_bt_management_evt_t
 }
 
 /* Get a Value */
-wiced_bt_gatt_status_t wicedbutton_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
+wiced_bt_gatt_status_t key_button_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
 {
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
     // Check for a matching handle entry
-    for (i = 0; i < wicedbutton_gatt_db_ext_attr_tbl_size; i++)
+    for (i = 0; i < key_button_gatt_db_ext_attr_tbl_size; i++)
     {
-        if (wicedbutton_gatt_db_ext_attr_tbl[i].handle == attr_handle)
+        if (key_button_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
             // Detected a matching handle in external lookup table
             isHandleInTable = WICED_TRUE;
             // Detected a matching handle in the external lookup table
-            if (wicedbutton_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
+            if (key_button_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
             {
                 // Value fits within the supplied buffer; copy over the value
-                *p_len = wicedbutton_gatt_db_ext_attr_tbl[i].cur_len;
-                memcpy(p_val, wicedbutton_gatt_db_ext_attr_tbl[i].p_data, wicedbutton_gatt_db_ext_attr_tbl[i].cur_len);
+                *p_len = key_button_gatt_db_ext_attr_tbl[i].cur_len;
+                memcpy(p_val, key_button_gatt_db_ext_attr_tbl[i].p_data, key_button_gatt_db_ext_attr_tbl[i].cur_len);
                 res = WICED_BT_GATT_SUCCESS;
 
                 // TODO: Add code for any action required when this attribute is read
@@ -388,7 +387,7 @@ wiced_bt_gatt_status_t wicedbutton_get_value( uint16_t attr_handle, uint16_t con
 }
 
 /* Set a Value */
-wiced_bt_gatt_status_t wicedbutton_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
+wiced_bt_gatt_status_t key_button_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
 {
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
@@ -396,19 +395,19 @@ wiced_bt_gatt_status_t wicedbutton_set_value( uint16_t attr_handle, uint16_t con
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
     // Check for a matching handle entry
-    for (i = 0; i < wicedbutton_gatt_db_ext_attr_tbl_size; i++)
+    for (i = 0; i < key_button_gatt_db_ext_attr_tbl_size; i++)
     {
-        if (wicedbutton_gatt_db_ext_attr_tbl[i].handle == attr_handle)
+        if (key_button_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
             // Detected a matching handle in external lookup table
             isHandleInTable = WICED_TRUE;
             // Verify that size constraints have been met
-            validLen = (wicedbutton_gatt_db_ext_attr_tbl[i].max_len >= len);
+            validLen = (key_button_gatt_db_ext_attr_tbl[i].max_len >= len);
             if (validLen)
             {
                 // Value fits within the supplied buffer; copy over the value
-                wicedbutton_gatt_db_ext_attr_tbl[i].cur_len = len;
-                memcpy(wicedbutton_gatt_db_ext_attr_tbl[i].p_data, p_val, len);
+                key_button_gatt_db_ext_attr_tbl[i].cur_len = len;
+                memcpy(key_button_gatt_db_ext_attr_tbl[i].p_data, p_val, len);
                 res = WICED_BT_GATT_SUCCESS;
 
                 // TODO: Add code for any action required when this attribute is written
@@ -448,29 +447,29 @@ wiced_bt_gatt_status_t wicedbutton_set_value( uint16_t attr_handle, uint16_t con
 }
 
 /* Handles Write Requests received from Client device */
-wiced_bt_gatt_status_t wicedbutton_write_handler( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id )
+wiced_bt_gatt_status_t key_button_write_handler( wiced_bt_gatt_write_t *p_write_req, uint16_t conn_id )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_INVALID_HANDLE;
 
     /* Attempt to perform the Write Request */
-    status = wicedbutton_set_value(p_write_req->handle, conn_id, p_write_req->p_val, p_write_req->val_len);
+    status = key_button_set_value(p_write_req->handle, conn_id, p_write_req->p_val, p_write_req->val_len);
 
     return status;
 }
 
 /* Handles Read Requests received from Client device */
-wiced_bt_gatt_status_t wicedbutton_read_handler( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id )
+wiced_bt_gatt_status_t key_button_read_handler( wiced_bt_gatt_read_t *p_read_req, uint16_t conn_id )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_INVALID_HANDLE;
 
     /* Attempt to perform the Read Request */
-    status = wicedbutton_get_value(p_read_req->handle, conn_id, p_read_req->p_val, *p_read_req->p_val_len, p_read_req->p_val_len);
+    status = key_button_get_value(p_read_req->handle, conn_id, p_read_req->p_val, *p_read_req->p_val_len, p_read_req->p_val_len);
 
     return status;
 }
 
 /* GATT Connection Status Callback */
-wiced_bt_gatt_status_t wicedbutton_connect_callback( wiced_bt_gatt_connection_status_t *p_conn_status )
+wiced_bt_gatt_status_t key_button_connect_callback( wiced_bt_gatt_connection_status_t *p_conn_status )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
 
@@ -502,17 +501,17 @@ wiced_bt_gatt_status_t wicedbutton_connect_callback( wiced_bt_gatt_connection_st
 }
 
 /* GATT Server Event Callback */
-wiced_bt_gatt_status_t wicedbutton_server_callback( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data )
+wiced_bt_gatt_status_t key_button_server_callback( uint16_t conn_id, wiced_bt_gatt_request_type_t type, wiced_bt_gatt_request_data_t *p_data )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
 
     switch ( type )
     {
     case GATTS_REQ_TYPE_READ:
-        status = wicedbutton_read_handler( &p_data->read_req, conn_id );
+        status = key_button_read_handler( &p_data->read_req, conn_id );
         break;
     case GATTS_REQ_TYPE_WRITE:
-        status = wicedbutton_write_handler( &p_data->write_req, conn_id );
+        status = key_button_write_handler( &p_data->write_req, conn_id );
         break;
     }
 
@@ -520,7 +519,7 @@ wiced_bt_gatt_status_t wicedbutton_server_callback( uint16_t conn_id, wiced_bt_g
 }
 
 /* GATT Event Handler */
-wiced_bt_gatt_status_t wicedbutton_event_handler( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_event_data )
+wiced_bt_gatt_status_t key_button_event_handler( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_event_data )
 {
     wiced_bt_gatt_status_t status = WICED_BT_GATT_ERROR;
     wiced_bt_gatt_connection_status_t *p_conn_status = NULL;
@@ -529,11 +528,11 @@ wiced_bt_gatt_status_t wicedbutton_event_handler( wiced_bt_gatt_evt_t event, wic
     switch ( event )
     {
     case GATT_CONNECTION_STATUS_EVT:
-        status = wicedbutton_connect_callback( &p_event_data->connection_status );
+        status = key_button_connect_callback( &p_event_data->connection_status );
         break;
     case GATT_ATTRIBUTE_REQUEST_EVT:
         p_attr_req = &p_event_data->attribute_request;
-        status = wicedbutton_server_callback( p_attr_req->conn_id, p_attr_req->request_type, &p_attr_req->data );
+        status = key_button_server_callback( p_attr_req->conn_id, p_attr_req->request_type, &p_attr_req->data );
         break;
     default:
         status = WICED_BT_GATT_SUCCESS;
@@ -590,7 +589,7 @@ uint32_t hci_control_process_rx_cmd( uint8_t* p_data, uint32_t len )
 
 #ifdef HCI_TRACE_OVER_TRANSPORT
 /* Handle Sending of Trace over the Transport */
-void wicedbutton_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
+void key_button_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
 {
     wiced_transport_send_hci_trace( transport_pool, type, length, p_data );
 }
@@ -601,12 +600,12 @@ void wicedbutton_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length
 void button_cback( void *data, uint8_t port_pin )
 {
     /* Increment the button value */
-    wicedbutton_wicedbutton_mb1[0] ++;
+    key_button_wicedbutton_mb1[0] ++;
 
     /* If the connection is up and if the client wants notifications, send it */
     if ( connection_id != 0)
     {
-         if(wicedbutton_wicedbutton_mb1_client_configuration[0] & GATT_CLIENT_CONFIG_NOTIFICATION)
+         if(key_button_wicedbutton_mb1_client_configuration[0] & GATT_CLIENT_CONFIG_NOTIFICATION)
         {
             wiced_bt_gatt_send_notification(connection_id, HDLC_WICEDBUTTON_MB1_VALUE,
                     sizeof(key_button_wicedbutton_mb1), key_button_wicedbutton_mb1 );
@@ -617,3 +616,4 @@ void button_cback( void *data, uint8_t port_pin )
     /* Clear the GPIO interrupt */
     wiced_hal_gpio_clear_pin_interrupt_status( WICED_GPIO_PIN_BUTTON_1 );
 }
+

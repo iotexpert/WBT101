@@ -1,15 +1,15 @@
-/* Monitor BUTTON_1 every 100ms and set LED_1 based on the button's state */
+/* Change a PWM duty cycle to change brightness of an LED */
 
 #include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
-#include "wiced_bt_trace.h"
+#include "wiced_hal_pwm.h"
 
 /*****************************    Constants   *****************************/
-/* Thread will delay for 100ms between button state checks */
-#define THREAD_DELAY_IN_MS         (100)
+/* Thread will delay for 10ms */
+#define THREAD_DELAY_IN_MS          (10)
 
 /* Useful macros for thread priorities */
 #define PRIORITY_HIGH               (3)
@@ -19,13 +19,20 @@
 /* Sensible stack size for most threads */
 #define THREAD_STACK_MIN_SIZE       (500)
 
+/* The PWM starts at the init value and counts up to 0xFFFF. Then it wraps back around to the init value
+ * The output of the PWM starts low and switches high at the toggle value */
+/* These values will cause the PWM to count from (0xFFFF - 99) to 0xFFFF (i.e. period = 100)
+ * with a duty cycle of 0xFFFF - 49 (i.e. a 50% duty cycle). */
+#define PWM_MAX                     (0xFFFF)
+#define PWM_INIT                    (PWM_MAX-99)
+#define PWM_TOGGLE                  (PWM_MAX-50)
+
 /*****************************    Variables   *****************************/
 wiced_thread_t * led_thread;
 
 /*****************************    Function Prototypes   *******************/
 wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
 void led_control( uint32_t arg );
-
 
 /*****************************    Functions   *****************************/
 /*  Main application. This just starts the BT stack and provides the callback function.
@@ -46,10 +53,11 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
         /* BlueTooth stack enabled */
         case BTM_ENABLED_EVT:
 
-            wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
-            WICED_BT_TRACE( "*** ex04_button ***\n\r" );
+            /* Configure and start the PWM */
+            wiced_hal_pwm_configure_pin( WICED_GPIO_PIN_LED_2, PWM1 );
+            wiced_hal_pwm_start( PWM1, LHL_CLK, PWM_TOGGLE, PWM_INIT, 0 );
 
-            /* Start a thread to control LED blinking */
+            /* Start a thread to control the PWM */
             led_thread = wiced_rtos_create_thread();       // Get memory for the thread handle
             wiced_rtos_init_thread(
                     led_thread,                     // Thread handle
@@ -67,23 +75,20 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
 }
 
 
-/* Thread function to monitor BUTTON_1 and update LED_1 */
+/* Thread function to control the LED */
 void led_control( uint32_t arg )
 {
+    uint16_t pwmInit   = PWM_INIT;
+    uint16_t pwmToggle = PWM_TOGGLE;
+
     for(;;)
     {
-        if( 0 == wiced_hal_gpio_get_pin_input_status( WICED_GPIO_PIN_BUTTON_1 ) )
+        pwmToggle++; /* Increase duty cycle by 1% (1 count out of 100) */
+        if( pwmToggle == PWM_MAX ) /* Reset to 0% duty cycle once we reach 100% */
         {
-            /* Drive LED HIGH */
-            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_2, GPIO_PIN_OUTPUT_HIGH );
-            WICED_BT_TRACE( "LED_HIGH\n\r" );
+            pwmToggle = PWM_INIT;
         }
-        else
-        {
-            /* Drive LED LOW */
-            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_2, GPIO_PIN_OUTPUT_LOW );
-            WICED_BT_TRACE( "LED_LOW\n\r" );
-        }
+        wiced_hal_pwm_change_values( PWM1, pwmToggle, pwmInit );
 
         /* Send the thread to sleep for a period of time */
         wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );

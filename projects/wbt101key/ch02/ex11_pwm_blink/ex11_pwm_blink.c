@@ -1,19 +1,32 @@
-/* Use an interrupt on BUTTON_1 to toggle LED_2 whenever the button is pressed */
+/*
+ * Use a PWM to control on/off time of a blinking LED
+ * It will be OFF for 800ms, then ON for 200ms
+ * so we will need a period of 1000ms and a duty cycle of 20%
+ */
 
 #include "wiced.h"
 #include "wiced_platform.h"
 #include "sparcommon.h"
 #include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
-#include "wiced_bt_trace.h"
+#include "wiced_hal_pwm.h"
+#include "wiced_hal_aclk.h"
 
 /*****************************    Constants   *****************************/
+/* The PWM starts at the init value and counts up to 0xFFFF. It switches state at the toggle value */
+/* These values give us at a period of 1000 and a duty cycle of 20% */
+/* A clock of 1 kHz and a period of 1000 means a 1 second period */
+#define PWM_MAX                     (0xFFFF)
+#define PWM_INIT                    (PWM_MAX-999)
+#define PWM_TOGGLE                  (PWM_MAX-800)
+
+/* Frequency is in Hz */
+#define CLK_FREQ                    (1000)
 
 /*****************************    Variables   *****************************/
 
 /*****************************    Function Prototypes   *******************/
 wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
-void button_cback( void *data, uint8_t port_pin );
 
 /*****************************    Functions   *****************************/
 /*  Main application. This just starts the BT stack and provides the callback function.
@@ -34,12 +47,10 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
         /* BlueTooth stack enabled */
         case BTM_ENABLED_EVT:
 
-            wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
-            WICED_BT_TRACE( "*** interrupt exercise ***\n\r" );
-
-            /* Configure the Button GPIO as an input with a resistive pull up and interrupt on falling edge */
-            wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, button_cback, NULL );
-            wiced_hal_gpio_configure_pin( WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE ), GPIO_PIN_OUTPUT_HIGH );
+            /* Set up the clock, pin and PWM */
+            wiced_hal_aclk_enable( CLK_FREQ, ACLK1, ACLK_FREQ_24_MHZ );
+            wiced_hal_pwm_configure_pin( WICED_GPIO_PIN_LED_2, PWM1 );
+            wiced_hal_pwm_start( PWM1, PMU_CLK, PWM_TOGGLE, PWM_INIT, 0 );
 
             break;
 
@@ -47,16 +58,4 @@ wiced_result_t bt_cback( wiced_bt_management_evt_t event, wiced_bt_management_ev
             break;
     }
     return result;
-}
-
-
-/* Interrupt callback function for BUTTON_1 */
-void button_cback( void *data, uint8_t port_pin )
-{
-    /* Clear the GPIO interrupt (this is not strictly needed since it is done automatically for buttons) */
-    wiced_hal_gpio_clear_pin_interrupt_status( WICED_GPIO_PIN_BUTTON_1 );
-
-    /* Toggle the LED state */
-    wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_2, ! wiced_hal_gpio_get_pin_output( WICED_GPIO_PIN_LED_2 ) );
-    WICED_BT_TRACE( "Toggle\n\r" );
 }
