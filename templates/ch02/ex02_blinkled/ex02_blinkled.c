@@ -68,8 +68,8 @@ void led_control( uint32_t arg )
     {
         /*
         Exercise:
-            Read the state of WICED_GPIO_PIN_LED_1
-            Drive the state of WICED_GPIO_PIN_LED_1 to the opposite value.
+            Read the state of WICED_GPIO_PIN_LED_2
+            Drive the state of WICED_GPIO_PIN_LED_2 to the opposite value.
         */
 
         /* Send the thread to sleep for a period of time */
