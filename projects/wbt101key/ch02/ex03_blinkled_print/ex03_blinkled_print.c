@@ -72,14 +72,14 @@ void led_control( uint32_t arg )
 {
     for(;;)
     {
-        if( GPIO_PIN_OUTPUT_LOW == wiced_hal_gpio_get_pin_output( WICED_GPIO_PIN_LED_1 ) )
+        if( GPIO_PIN_OUTPUT_LOW == wiced_hal_gpio_get_pin_output( WICED_GPIO_PIN_LED_2 ) )
         {
-            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, GPIO_PIN_OUTPUT_HIGH );
+            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_2, GPIO_PIN_OUTPUT_HIGH );
             WICED_BT_TRACE( "LED_HIGH\n\r" );
         }
         else
         {
-            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, GPIO_PIN_OUTPUT_LOW );
+            wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_2, GPIO_PIN_OUTPUT_LOW );
             WICED_BT_TRACE( "LED_LOW\n\r" );
         }
 

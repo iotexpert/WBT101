@@ -1,4 +1,4 @@
-/* Blink LED_1 with a frequency of 2 Hz */
+/* Blink LED_2 with a frequency of 2 Hz */
 
 #include "wiced.h"
 #include "wiced_platform.h"
@@ -68,8 +68,8 @@ void led_control( uint32_t arg )
 
     for(;;)
     {
-        led = wiced_hal_gpio_get_pin_output( WICED_GPIO_PIN_LED_1 );
-        wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_1, ! led );
+        led = wiced_hal_gpio_get_pin_output( WICED_GPIO_PIN_LED_2 );
+        wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_2, ! led );
 
         /* Send the thread to sleep for a period of time */
         wiced_rtos_delay_milliseconds( THREAD_DELAY_IN_MS, ALLOW_THREAD_TO_SLEEP );

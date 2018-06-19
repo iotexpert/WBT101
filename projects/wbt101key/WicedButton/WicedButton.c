@@ -163,7 +163,7 @@ void wicedbutton_app_init(void)
     wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, button_cback, NULL );
     wiced_hal_gpio_configure_pin( WICED_GPIO_PIN_BUTTON_1,
             ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE ),
-            GPIO_PIN_OUTPUT_HIGH );
+              GPIO_PIN_OUTPUT_HIGH );
 
     /* Allow peer to pair */
     wiced_bt_set_pairable_mode(WICED_TRUE, 0);
@@ -609,7 +609,7 @@ void button_cback( void *data, uint8_t port_pin )
          if(wicedbutton_wicedbutton_mb1_client_configuration[0] & GATT_CLIENT_CONFIG_NOTIFICATION)
         {
             wiced_bt_gatt_send_notification(connection_id, HDLC_WICEDBUTTON_MB1_VALUE,
-                    sizeof(wicedbutton_wicedbutton_mb1), wicedbutton_wicedbutton_mb1 );
+                    sizeof(key_button_wicedbutton_mb1), key_button_wicedbutton_mb1 );
             WICED_BT_TRACE( "\tSend Notification: sending CapSense value\r\n");
         }
     }
