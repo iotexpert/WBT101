@@ -2,6 +2,9 @@
 #include "wiced.h"
 #include "wiced_bt_ble.h"
 
+#define MAX_DEVICES (4096)
+#define RECENT_PACKET_NUM (16)
+
 typedef struct
 {
     wiced_bt_device_address_t       remote_bd_addr;                         /**< Device address */
@@ -13,13 +16,10 @@ typedef struct
     uint8_t                         data[31];
 } scan_device_t;
 
+scan_device_t *dt_getTable();
 scan_device_t *dt_findDevice(wiced_bt_device_address_t *bdaddr);
 scan_device_t *dt_addDevice(wiced_bt_ble_scan_results_t *scanDev, uint8_t *advData, uint32_t time);
 uint32_t dt_advGetLength(uint8_t *p_adv_data);
-void dt_printDeviceOneLine(scan_device_t *device, uint32_t index);
-void dt_printDeviceTableOneLine();
-void dt_printDeviceTableMultiLine();
-void dt_printRecentFilterData();
 uint32_t dt_getNumDevices();
 uint32_t dt_getFocus();
 void dt_reset();

@@ -5,7 +5,10 @@
 APP_SRC = AdvScanner.c
 APP_SRC += wiced_bt_cfg.c
 APP_SRC += company_ids.c
+APP_SRC += decode_functions.c
 APP_SRC += device_table.c
+APP_SRC += print_functions.c
+APP_SRC += ring_buffer.c
 
 C_FLAGS += -DWICED_BT_TRACE_ENABLE
 
@@ -15,4 +18,3 @@ C_FLAGS += -DHCI_TRACE_OVER_TRANSPORT
 ########################################################################
 ################ DO NOT MODIFY FILE BELOW THIS LINE ####################
 ########################################################################
-
