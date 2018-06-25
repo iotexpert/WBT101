@@ -1645,12 +1645,12 @@ uint32_t numCompanies = sizeof(company_ids)/sizeof(company_id_t);
 
 char *getCompanyName(uint16_t id)
 {
-    //WICED_BT_TRACE("Looking for = %X\n",id);
+    //WICED_BT_TRACE("Looking for = %X\n\r",id);
     for(int i=0;i<numCompanies;i++)
     {
         if(company_ids[i].companyCode == id)
         {
-            //WICED_BT_TRACE("Found %i id=%x name=%s\n",i,company_ids[i].companyCode,company_ids[i].name);
+            //WICED_BT_TRACE("Found %i id=%x name=%s\n\r",i,company_ids[i].companyCode,company_ids[i].name);
             return company_ids[i].name;
         }
     }
