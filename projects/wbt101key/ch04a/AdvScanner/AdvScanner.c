@@ -365,7 +365,6 @@ void rx_cback( void *data )
             wiced_hal_puart_print( "|  s/S    Enable/Disable Scanning    |\n\r" );
             wiced_hal_puart_print( "|  p/P    Enable/Disable Printing    |\n\r" );
             wiced_hal_puart_print( "|  f/F    Enable/Disable Filter      |\n\r" );
-            wiced_hal_puart_print( "|  0-9    Change Filtered Device     |\n\r" );
             wiced_hal_puart_print( "|  r      Dump Recent Filter Packets |\n\r" );
             wiced_hal_puart_print( "|  t      Dump Single-line Table     |\n\r" );
             wiced_hal_puart_print( "|  m      Dump Multiline Table       |\n\r" );
@@ -373,6 +372,14 @@ void rx_cback( void *data )
             wiced_hal_puart_print( "|  c      Clear Screen               |\n\r" );
             wiced_hal_puart_print( "|  ?      Print Commands             |\n\r" );
             wiced_hal_puart_print( "+------------------------------------+\n\r" );
+            wiced_hal_puart_print( "\n\r" );
+            wiced_hal_puart_print( "+----------- Changing the filter -----------+\n\r" );
+            wiced_hal_puart_print( "| 1. Find the device's index in the table.  |\n\r" );
+            wiced_hal_puart_print( "| 2. Type the index with less than two      |\n\r" );
+            wiced_hal_puart_print( "|    seconds between each key press.        |\n\r" );
+            wiced_hal_puart_print( "| 3. To change the filter, wait at least    |\n\r" );
+            wiced_hal_puart_print( "|    two seconds and type the new index.    |\n\r" );
+            wiced_hal_puart_print( "+-------------------------------------------+\n\r" );
             wiced_hal_puart_print( "\n\r" );
             break;
         case '0':
