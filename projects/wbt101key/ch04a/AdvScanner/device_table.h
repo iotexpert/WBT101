@@ -2,7 +2,7 @@
 #include "wiced.h"
 #include "wiced_bt_ble.h"
 
-#define MAX_DEVICES (4096)
+#define MAX_DEVICES (4000)
 #define RECENT_PACKET_NUM (16)
 
 typedef struct
