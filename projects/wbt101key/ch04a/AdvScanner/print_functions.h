@@ -1,7 +1,9 @@
 #pragma once
 #include "device_table.h"
 
-#define PAGE_SIZE_M (7)
+#define PAGE_SIZE_M (6)
+#define PAGE_SIZE_F (5)
+#define PAGE_NUM_F  (4)
 #define PAGE_SIZE_S (40)
 
 void blePrintAdvPacketData(uint8_t *data,int len,char *pad);

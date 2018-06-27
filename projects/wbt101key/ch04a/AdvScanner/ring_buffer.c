@@ -7,7 +7,7 @@
 #include "device_table.h"
 #include "ring_buffer.h"
 
-#define RING_BUFFER_SIZE (19)
+#define RING_BUFFER_SIZE (21)
 
 static ring_struct_t ring_buffer[RING_BUFFER_SIZE];
 static uint8_t ring_start = 0;
@@ -31,15 +31,6 @@ void rb_insert(uint8_t *data, int8_t rssi, uint32_t time_stamp)
         ring_end = (ring_end - 1 + RING_BUFFER_SIZE)%RING_BUFFER_SIZE;
     if(ring_size < RING_BUFFER_SIZE)
         ring_size++;
-
-    //    memcpy(ring_buffer[ring_end].data, data, 31);
-    //    ring_buffer[ring_end].rssi = rssi;
-    //    ring_buffer[ring_end].time_stamp = time_stamp;
-    //    ring_end = (ring_end+1)%RING_BUFFER_SIZE;
-    //    if(ring_end == ring_start)
-    //        ring_start = (ring_start+1)%RING_BUFFER_SIZE;
-    //    if(ring_size < RING_BUFFER_SIZE)
-    //        ring_size++;
 }
 
 void rb_reset()
