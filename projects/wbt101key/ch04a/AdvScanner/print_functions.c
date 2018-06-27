@@ -60,11 +60,10 @@ void decrementPageNum_m()
 /* Increment/Decrement recent packet table page */
 void incrementPageNum_r()
 {
-    uint8_t max_pages = 1;
-    if(rb_size() > 6)
-        max_pages++;
-    if(rb_size() > 12)
-        max_pages++;
+    uint8_t max_pages = 0;
+    for(int i = 0; i < PAGE_NUM_F; i++)
+        if(rb_size() >= i*PAGE_SIZE_F)
+            max_pages++;
     if(page_num_r < max_pages - 1)
         page_num_r++;
 }
@@ -319,17 +318,16 @@ void printRecentFilterData()
     //WICED_BT_TRACE( "\n\r" );
     //WICED_BT_TRACE("------------ Data ------------\n\r");
 
-    // Print the 18 most recent advertising packets (pages of 6)
-    rb_print_num(page_num_r*6, 6);
+    // Print the 20 most recent advertising packets (pages of 5)
+    rb_print_num(page_num_r*PAGE_SIZE_F, PAGE_SIZE_F);
 
     WICED_BT_TRACE( "\n\r" );
 
     //Print page numbers
-    uint8_t max_pages = 1;
-    if(rb_size() > 6)
-        max_pages++;
-    if(rb_size() > 12)
-        max_pages++;
+    uint8_t max_pages = 0;
+    for(int i = 0; i < PAGE_NUM_F; i++)
+        if(rb_size() >= i*PAGE_SIZE_F)
+            max_pages++;
     WICED_BT_TRACE("Page %d out of %d\n\r", page_num_r + 1, max_pages);
 }
 
