@@ -7,11 +7,11 @@
 #include "company_ids.h"
 #include "decode_functions.h"
 #include "device_table.h"
+#include "print_functions.h"
 #include "ring_buffer.h"
 
 
 /* ----- Definitions ----- */
-#define PAGE_SIZE (7)
 #define HEADER    "  #  |      Address      | Len |    Name    | E | I | C | Seen | RSSI "
 #define PAD       "     |                   |     |            |   |   |   |      |      | "
 #define FIRST_BAR "-----+-------------------+-----+------------+---+---+---+------+------+"
@@ -26,6 +26,8 @@ void blePrintAdvPacketData(uint8_t *data,int len,char *pad);
 /* ----- Variable declarations ----- */
 uint8_t page_num_m = 0;
 uint8_t page_num_r = 0;
+uint8_t page_num_s = 0;
+uint8_t page_num_b = 0;
 
 
 /* Clear the terminal and reset the cursor position */
@@ -38,6 +40,77 @@ void clear_terminal()
     // Esc[H moves the cursor to the top left corner
     uint8_t seq2[3] = {0x1B,'[','H'};
     wiced_hal_puart_print((char*)seq2);
+}
+
+/* Increment/Decrement multiline table page */
+void incrementPageNum_m()
+{
+    uint8_t max_pages = dt_getNumDevices()/PAGE_SIZE_M;
+    if(dt_getNumDevices() % PAGE_SIZE_M)
+        max_pages++;
+    if(page_num_m < max_pages - 1)
+        page_num_m++;
+}
+void decrementPageNum_m()
+{
+    if(page_num_m > 0)
+        page_num_m--;
+}
+
+/* Increment/Decrement recent packet table page */
+void incrementPageNum_r()
+{
+    uint8_t max_pages = 1;
+    if(rb_size() > 6)
+        max_pages++;
+    if(rb_size() > 12)
+        max_pages++;
+    if(page_num_r < max_pages - 1)
+        page_num_r++;
+}
+void decrementPageNum_r()
+{
+    if(page_num_r > 0)
+        page_num_r--;
+}
+
+/* Increment/Decrement single-line table page */
+void incrementPageNum_s()
+{
+    uint8_t max_pages = dt_getNumDevices()/PAGE_SIZE_S;
+    if(dt_getNumDevices() % PAGE_SIZE_S)
+        max_pages++;
+    if(page_num_s < max_pages - 1)
+        page_num_s++;
+}
+void decrementPageNum_s()
+{
+    if(page_num_s > 0)
+        page_num_s--;
+}
+
+/* Increment/Decrement beacon table page */
+void incrementPageNum_b()
+{
+    uint8_t max_pages = dt_getNumBeacons()/PAGE_SIZE_S;
+    if(dt_getNumBeacons() % PAGE_SIZE_S)
+        max_pages++;
+    if(page_num_b < max_pages - 1)
+        page_num_b++;
+}
+void decrementPageNum_b()
+{
+    if(page_num_b > 0)
+        page_num_b--;
+}
+
+/* Reset table page numbers */
+void reset_tables()
+{
+    page_num_r = 0;
+    page_num_m = 0;
+    page_num_s = 0;
+    page_num_b = 0;
 }
 
 /* Print unprocessed device data */
@@ -66,40 +139,21 @@ void printDeviceOneLine(scan_device_t *device, uint32_t index, wiced_bool_t extr
         WICED_BT_TRACE("           | ");
 
     /* Check for Eddystone, iBeacon, and Cypress devices */
-    // Eddystone prefix: 02 01 06 03 03 AA FE
-    if(
-            device->data[0] == 0x02 &&
-            device->data[1] == 0x01 &&
-            device->data[2] == 0x06 &&
-            device->data[3] == 0x03 &&
-            device->data[4] == 0x03 &&
-            device->data[5] == 0xAA &&
-            device->data[6] == 0xFE
-    )
+    if(isEddystone(device->data) == WICED_TRUE)
         WICED_BT_TRACE("X | ");
     else
         WICED_BT_TRACE("  | ");
 
-    // iBeacon prefix: 02 01 06 1A FF 4C 00 02
-    if(
-            device->data[0] == 0x02 &&
-            device->data[1] == 0x01 &&
-            device->data[4] == 0xFF &&
-            device->data[5] == 0x4C &&
-            device->data[6] == 0x00 &&
-            device->data[7] == 0x02)
+    if(is_iBeacon(device->data) == WICED_TRUE)
         WICED_BT_TRACE("X | ");
     else
         WICED_BT_TRACE("  | ");
 
-    // Cypress Company prefix: 02 01 06 1A FF 01 31
-    if(
-            device->data[4] == 0xFF &&
-            device->data[5] == 0x01 &&
-            device->data[6] == 0x31)
+    if(isCypress(device->data) == WICED_TRUE)
         WICED_BT_TRACE("X | ");
     else
         WICED_BT_TRACE("  | ");
+
 
     if(extra_data == WICED_FALSE)
         WICED_BT_TRACE("  ");
@@ -144,6 +198,10 @@ void printDeviceOneLine(scan_device_t *device, uint32_t index, wiced_bool_t extr
 /* Print a table of unprocessed device data */
 void printDeviceTableOneLine()
 {
+    // Clear the screen
+    clear_terminal();
+
+    // Retrieve a pointer to the table
     scan_device_t *devices = dt_getTable();
 
     // Print table header
@@ -152,47 +210,53 @@ void printDeviceTableOneLine()
     WICED_BT_TRACE("%s%s\n\r", FIRST_BAR, SHORT_BAR);
 
     //Print device data
-    for(int i=0;i<dt_getNumDevices();i++)
-        printDeviceOneLine(&devices[i], i, WICED_TRUE);
+    uint32_t index;
+    for(int i = 0; i < PAGE_SIZE_S && (index = i+PAGE_SIZE_S*page_num_s) < dt_getNumDevices(); i++)
+        printDeviceOneLine(&devices[index], index, WICED_TRUE);
+
+    //Print page numbers
+    uint8_t max_pages = dt_getNumDevices()/PAGE_SIZE_S;
+    if(dt_getNumDevices() % PAGE_SIZE_S)
+        max_pages++;
+    WICED_BT_TRACE("\n\rPage %d out of %d\n\r", page_num_s + 1, max_pages);
 }
 
-/* Increment/Decrement multiline table page */
-void incrementPageNum_m()
+void printBeaconTable()
 {
-    uint8_t max_pages = dt_getNumDevices()/PAGE_SIZE;
-    if(dt_getNumDevices() % PAGE_SIZE)
-        max_pages++;
-    if(page_num_m < max_pages - 1)
-        page_num_m++;
-}
-void decrementPageNum_m()
-{
-    if(page_num_m > 0)
-        page_num_m--;
-}
+    // Clear the screen
+    clear_terminal();
 
-/* Increment/Decrement recent packet table page */
-void incrementPageNum_r()
-{
-    uint8_t max_pages = 1;
-    if(rb_size() > 6)
-        max_pages++;
-    if(rb_size() > 12)
-        max_pages++;
-    if(page_num_r < max_pages - 1)
-        page_num_r++;
-}
-void decrementPageNum_r()
-{
-    if(page_num_r > 0)
-        page_num_r--;
-}
+    // Retrieve a pointer to the table
+    scan_device_t *devices = dt_getTable();
 
-/* Reset table page numbers */
-void reset_tables()
-{
-    page_num_r = 0;
-    page_num_m = 0;
+    // Print table header
+    WICED_BT_TRACE("%s%s\n\r", FIRST_BAR, SHORT_BAR);
+    WICED_BT_TRACE("%s| Data\n\r", HEADER);
+    WICED_BT_TRACE("%s%s\n\r", FIRST_BAR, SHORT_BAR);
+
+    //Print device data
+    uint32_t index;
+    int found_beacons = 0;
+    int i = 0;
+    while(i < dt_getNumDevices() && found_beacons < (page_num_b + 1) * PAGE_SIZE_S)
+    {
+        if(
+                isEddystone(devices[i].data) == WICED_TRUE ||
+                is_iBeacon(devices[i].data) == WICED_TRUE ||
+                isCypress(devices[i].data) == WICED_TRUE
+        ){
+            if(found_beacons >= page_num_b * PAGE_SIZE_S)
+                printDeviceOneLine(&devices[i], i, WICED_TRUE);
+            found_beacons++;
+        }
+        i++;
+    }
+
+    //Print page numbers
+    uint8_t max_pages = dt_getNumBeacons()/PAGE_SIZE_S;
+    if(dt_getNumBeacons() % PAGE_SIZE_S)
+        max_pages++;
+    WICED_BT_TRACE("\n\rPage %d out of %d\n\r", page_num_b + 1, max_pages);
 }
 
 /* Print a table of both processed and unprocessed device data */
@@ -213,7 +277,7 @@ void printDeviceTableMultiLine()
 
     // Print device data
     char *pad = "     |                   |     |            |   |   |   |      |      +";
-    for(int i = 0; i < PAGE_SIZE && (index = i+PAGE_SIZE*page_num_m) < dt_getNumDevices(); i++)
+    for(int i = 0; i < PAGE_SIZE_M && (index = i+PAGE_SIZE_M*page_num_m) < dt_getNumDevices(); i++)
     {
         WICED_BT_TRACE("%s%s%s\n\r", FIRST_BAR, SHORT_BAR, EXTEND);
         len = dt_advGetLength(devices[index].data);
@@ -223,8 +287,8 @@ void printDeviceTableMultiLine()
     }
 
     //Print page numbers
-    uint8_t max_pages = dt_getNumDevices()/PAGE_SIZE;
-    if(dt_getNumDevices() % PAGE_SIZE)
+    uint8_t max_pages = dt_getNumDevices()/PAGE_SIZE_M;
+    if(dt_getNumDevices() % PAGE_SIZE_M)
         max_pages++;
     WICED_BT_TRACE("Page %d out of %d\n\r", page_num_m + 1, max_pages);
 }

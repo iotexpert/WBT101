@@ -21,6 +21,7 @@ scan_device_t *dt_findDevice(wiced_bt_device_address_t *bdaddr);
 scan_device_t *dt_addDevice(wiced_bt_ble_scan_results_t *scanDev, uint8_t *advData, uint32_t time);
 uint32_t dt_advGetLength(uint8_t *p_adv_data);
 uint32_t dt_getNumDevices();
+uint32_t dt_getNumBeacons();
 uint32_t dt_getFocus();
 void dt_reset();
 void dt_setFocus(uint32_t new_focus);
