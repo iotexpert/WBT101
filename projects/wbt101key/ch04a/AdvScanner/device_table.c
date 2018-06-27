@@ -4,11 +4,13 @@
 
 #include "AdvScanner.h"
 #include "company_ids.h"
+#include "decode_functions.h"
 #include "device_table.h"
 #include "ring_buffer.h"
 
 static scan_device_t devices[MAX_DEVICES];
 static uint32_t numDevices;
+static uint32_t numBeacons;
 static uint32_t focusDevice = 0;
 
 scan_device_t *dt_getTable()
@@ -19,6 +21,11 @@ scan_device_t *dt_getTable()
 uint32_t dt_getNumDevices()
 {
     return numDevices;
+}
+
+uint32_t dt_getNumBeacons()
+{
+    return numBeacons;
 }
 
 uint32_t dt_getFocus()
@@ -45,6 +52,7 @@ void dt_reset()
 {
     dt_setFocus(0);
     numDevices = 0;
+    numBeacons = 0;
     rb_reset();
 }
 
@@ -76,22 +84,43 @@ scan_device_t *dt_addDevice(wiced_bt_ble_scan_results_t *scanDev, uint8_t *advDa
         if(numDevices < MAX_DEVICES)
         {
             myDev = &devices[numDevices++];
+            if(
+                    isEddystone(advData) == WICED_TRUE ||
+                    is_iBeacon(advData) == WICED_TRUE ||
+                    isCypress(advData) == WICED_TRUE
+            )
+                numBeacons++;
             if(printing_enabled() == WICED_TRUE && filter_enabled() == WICED_FALSE && numDevices == MAX_DEVICES)
                 WICED_BT_TRACE("Table is now full, so new devices will replace the oldest device\n\r");
         }
         else
         {
             uint32_t oldest_time;
-            int oldest_index;
+            int oldest_index, sub_beacon;
             for(int i = 0; i < MAX_DEVICES; i++)
             {
                 myDev = &devices[i];
                 if(i == 0 || myDev->time_stamp < oldest_time)
                 {
+                    if(
+                            isEddystone(myDev->data) == WICED_TRUE ||
+                            is_iBeacon(myDev->data) == WICED_TRUE ||
+                            isCypress(myDev->data) == WICED_TRUE
+                    )
+                        sub_beacon = 1;
+                    else
+                        sub_beacon = 0;
                     oldest_time = myDev->time_stamp;
                     oldest_index = i;
                 }
             }
+            numBeacons-=sub_beacon;
+            if(
+                    isEddystone(advData) == WICED_TRUE ||
+                    is_iBeacon(advData) == WICED_TRUE ||
+                    isCypress(advData) == WICED_TRUE
+            )
+                numBeacons++;
 
             myDev = &devices[oldest_index];
         }

@@ -312,12 +312,53 @@ void rx_cback( void *data )
             break;
         case 't':
             /* Dump table */
-            wiced_hal_puart_print( "\n\r" );
-            printDeviceTableOneLine();
-            wiced_hal_puart_print( "\n\r" );
+            if(dt_getNumDevices() == 0)
+            {
+                WICED_BT_TRACE("No devices.\n\r");
+                break;
+            }
+            if(dt_getNumDevices() > PAGE_SIZE_S)
+            {
+                old_print = print;
+                print = WICED_FALSE;
+                screen_number = 3;
+                printDeviceTableOneLine();
+            }
+            else
+            {
+                wiced_hal_puart_print( "\n\r" );
+                printDeviceTableOneLine();
+                wiced_hal_puart_print( "\n\r" );
+            }
+            break;
+        case 'b':
+            /* Dump beacon table */
+            if(dt_getNumBeacons() == 0)
+            {
+                WICED_BT_TRACE("No beacons.\n\r");
+                break;
+            }
+            if(dt_getNumBeacons() > PAGE_SIZE_S)
+            {
+                old_print = print;
+                print = WICED_FALSE;
+                screen_number = 4;
+                printBeaconTable();
+            }
+            else
+            {
+                wiced_hal_puart_print( "\n\r" );
+                printBeaconTable();
+                wiced_hal_puart_print( "\n\r" );
+            }
             break;
         case 'm':
             /* Dump multiline table */
+            if(dt_getNumDevices() == 0)
+            {
+                WICED_BT_TRACE("No devices.\n\r");
+                break;
+            }
             old_print = print;
             print = WICED_FALSE;
             screen_number = 1;
@@ -325,6 +366,11 @@ void rx_cback( void *data )
             break;
         case 'r':
             /* Dump recent filtered packets */
+            if(dt_getNumDevices() == 0)
+            {
+                WICED_BT_TRACE("No data.\n\r");
+                break;
+            }
             old_print = print;
             print = WICED_FALSE;
             screen_number = 2;
@@ -332,6 +378,11 @@ void rx_cback( void *data )
             break;
         case 'R':
             /* Dump most recent filtered packet */
+            if(dt_getNumDevices() == 0)
+            {
+                WICED_BT_TRACE("No data.\n\r");
+                break;
+            }
             printMostRecentFilterData();
             break;
         case 'f':
@@ -379,6 +430,7 @@ void rx_cback( void *data )
             wiced_hal_puart_print( "|  r      Dump Recent Filter Packets |\n\r" );
             wiced_hal_puart_print( "|  R      Print Most Recent Packet   |\n\r" );
             wiced_hal_puart_print( "|  t      Dump Single-line Table     |\n\r" );
+            wiced_hal_puart_print( "|  b      Dump Beacon Table          |\n\r" );
             wiced_hal_puart_print( "|  m      Dump Multiline Table       |\n\r" );
             wiced_hal_puart_print( "|  d      Delete All Device Data     |\n\r" );
             wiced_hal_puart_print( "|  c      Clear Screen               |\n\r" );
@@ -420,29 +472,51 @@ void rx_cback( void *data )
         {
         /* Change table pages */
         case '>':
-            if(screen_number == 1)
+        {
+            switch (screen_number)
             {
+            case 1:
                 incrementPageNum_m();
                 printDeviceTableMultiLine();
-            }
-            else if(screen_number == 2)
-            {
+                break;
+            case 2:
                 incrementPageNum_r();
                 printRecentFilterData();
+                break;
+            case 3:
+                incrementPageNum_s();
+                printDeviceTableOneLine();
+                break;
+            case 4:
+                incrementPageNum_b();
+                printBeaconTable();
+                break;
             }
             break;
+        }
         case '<':
-            if(screen_number == 1)
+        {
+            switch (screen_number)
             {
+            case 1:
                 decrementPageNum_m();
                 printDeviceTableMultiLine();
-            }
-            else if(screen_number == 2)
-            {
+                break;
+            case 2:
                 decrementPageNum_r();
                 printRecentFilterData();
+                break;
+            case 3:
+                decrementPageNum_s();
+                printDeviceTableOneLine();
+                break;
+            case 4:
+                decrementPageNum_b();
+                printBeaconTable();
+                break;
             }
             break;
+        }
         case 0x1B:
         case 'c':
             /* Clear the terminal and exit the table */

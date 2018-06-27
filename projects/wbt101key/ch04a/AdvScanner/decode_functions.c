@@ -1,3 +1,4 @@
+#include "wiced.h"
 #include "wiced_bt_trace.h"
 
 #include "company_ids.h"
@@ -212,4 +213,54 @@ void bleFormat16bitUUID(uint8_t *bytes)
             bytes[1],
             bytes[0]
     );
+}
+
+// Eddystone prefix: 02 01 06 03 03 AA FE
+wiced_bool_t isEddystone(uint8_t *data)
+{
+    if(
+            data[0] == 0x02 &&
+            data[1] == 0x01 &&
+            data[2] == 0x06 &&
+            data[3] == 0x03 &&
+            data[4] == 0x03 &&
+            data[5] == 0xAA &&
+            data[6] == 0xFE
+    )
+        return WICED_TRUE;
+    else
+        return WICED_FALSE;
+}
+
+// iBeacon prefix: 02 01 06 1A FF 4C 00 02
+wiced_bool_t is_iBeacon(uint8_t *data)
+{
+    if(
+            data[0] == 0x02 &&
+            data[1] == 0x01 &&
+            data[4] == 0xFF &&
+            data[5] == 0x4C &&
+            data[6] == 0x00 &&
+            data[7] == 0x02
+    )
+        return WICED_TRUE;
+    else
+        return WICED_FALSE;
+}
+
+// Cypress Company code: 0x0131
+wiced_bool_t isCypress(uint8_t *data)
+{
+    uint8_t mfgLen;
+    uint8_t* mfgData = wiced_bt_ble_check_advertising_data(data,0xFF,&mfgLen);
+
+    if(
+            mfgData &&
+            mfgLen == 3 &&
+            mfgData[0] == 0x31 &&
+            mfgData[1] == 0x01
+    )
+        return WICED_TRUE;
+    else
+        return WICED_FALSE;
 }
