@@ -31,15 +31,14 @@ uint8_t page_num_b = 0;
 
 
 /* Clear the terminal and reset the cursor position */
+#define ASCII_ESC 27
 void clear_terminal()
 {
     // Esc[2J clears the screen
-    uint8_t seq1[4] = {0x1B,'[','2','J'};
-    wiced_hal_puart_print((char*)seq1);
+    WICED_BT_TRACE( "%c[2J", ASCII_ESC );
 
     // Esc[H moves the cursor to the top left corner
-    uint8_t seq2[3] = {0x1B,'[','H'};
-    wiced_hal_puart_print((char*)seq2);
+    WICED_BT_TRACE( "%c[H", ASCII_ESC );
 }
 
 /* Increment/Decrement multiline table page */
