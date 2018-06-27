@@ -43,10 +43,13 @@ static wiced_bt_ble_scan_type_t scan_state = BTM_BLE_SCAN_TYPE_NONE;
 
 static wiced_bool_t print = WICED_TRUE;
 static wiced_bool_t old_print;
-static wiced_bool_t table_on = WICED_FALSE;
 static wiced_bool_t filter = WICED_FALSE;
 static uint32_t timer = 0;
 static uint32_t type_time = 0;
+// 0: Scan screen
+// 1: Multi-line table
+// 2: Filter recent packets
+static uint32_t screen_number = 0;
 
 /*******************************************************************
  * Function Prototypes
@@ -283,6 +286,7 @@ wiced_bt_dev_status_t advscanner_management_callback( wiced_bt_management_evt_t 
     return status;
 }
 
+//TODO: Add key to print out most recent packet
 /* Interrupt callback function for UART */
 void rx_cback( void *data )
 {
@@ -293,7 +297,7 @@ void rx_cback( void *data )
     wiced_hal_puart_read( &readbyte );
     wiced_hal_puart_reset_puart_interrupt();
 
-    if(!table_on)
+    if(screen_number == 0)
     {
         /* Process the read character */
         switch (readbyte)
@@ -316,8 +320,19 @@ void rx_cback( void *data )
             /* Dump multiline table */
             old_print = print;
             print = WICED_FALSE;
-            table_on = WICED_TRUE;
+            screen_number = 1;
             printDeviceTableMultiLine();
+            break;
+        case 'r':
+            /* Dump recent filtered packets */
+            old_print = print;
+            print = WICED_FALSE;
+            screen_number = 2;
+            printRecentFilterData();
+            break;
+        case 'R':
+            /* Dump most recent filtered packet */
+            printMostRecentFilterData();
             break;
         case 'f':
             /* Enabled filter */
@@ -354,10 +369,6 @@ void rx_cback( void *data )
             /* Clear the terminal */
             clear_terminal();
             break;
-        case 'r':
-            /* Dump recent filtered packets */
-            printRecentFilterData();
-            break;
         case '?':
             /* Print help */
             wiced_hal_puart_print( "\n\r" );
@@ -366,6 +377,7 @@ void rx_cback( void *data )
             wiced_hal_puart_print( "|  p/P    Enable/Disable Printing    |\n\r" );
             wiced_hal_puart_print( "|  f/F    Enable/Disable Filter      |\n\r" );
             wiced_hal_puart_print( "|  r      Dump Recent Filter Packets |\n\r" );
+            wiced_hal_puart_print( "|  R      Print Most Recent Packet   |\n\r" );
             wiced_hal_puart_print( "|  t      Dump Single-line Table     |\n\r" );
             wiced_hal_puart_print( "|  m      Dump Multiline Table       |\n\r" );
             wiced_hal_puart_print( "|  d      Delete All Device Data     |\n\r" );
@@ -408,25 +420,36 @@ void rx_cback( void *data )
         {
         /* Change table pages */
         case '>':
-            if(table_on == WICED_TRUE)
+            if(screen_number == 1)
             {
-                incrementPageNum();
+                incrementPageNum_m();
                 printDeviceTableMultiLine();
+            }
+            else if(screen_number == 2)
+            {
+                incrementPageNum_r();
+                printRecentFilterData();
             }
             break;
         case '<':
-            if(table_on == WICED_TRUE)
+            if(screen_number == 1)
             {
-                decrementPageNum();
+                decrementPageNum_m();
                 printDeviceTableMultiLine();
+            }
+            else if(screen_number == 2)
+            {
+                decrementPageNum_r();
+                printRecentFilterData();
             }
             break;
         case 0x1B:
         case 'c':
             /* Clear the terminal and exit the table */
-            table_on = WICED_FALSE;
+            screen_number = 0;
             print = old_print;
             clear_terminal();
+            reset_tables();
             break;
         case '?':
             /* Print help */

@@ -149,6 +149,8 @@ struct advDecode_t advDecodeArray[] = {
         {0x27, "LE Supported Features",bleAdInfoDumpBytes},
         {0x28, "Channel Map Update Indication",bleAdInfoDumpBytes},
         {0x29, "PB-ADV",bleAdInfoDumpBytes},
+        {0x2A, "Mesh Message",bleAdInfoDumpBytes},
+        {0x2B, "Mesh Beacon",bleAdInfoDumpBytes},
         {0x3D, "3D Information Data",bleAdInfoDumpBytes},
         {0xFF, "MFG Data", bleAdInfoDecodeMfgData}
 };
