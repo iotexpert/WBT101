@@ -99,7 +99,12 @@ scan_device_t *dt_addDevice(wiced_bt_ble_scan_results_t *scanDev, uint8_t *advDa
         myDev->flag = scanDev->flag;
         myDev->ble_addr_type = scanDev->ble_addr_type;
         if(printing_enabled() == WICED_TRUE && filter_enabled() == WICED_FALSE)
-            WICED_BT_TRACE("Adding new device %B[Scan Type %d]\n\r",scanDev->remote_bd_addr,scanDev->ble_evt_type);
+        {
+            WICED_BT_TRACE("Adding new device %B[Scan Type %d]: ",scanDev->remote_bd_addr,scanDev->ble_evt_type);
+            for(int i=0;i<length;i++)
+                WICED_BT_TRACE("%02X ", advData[i]);
+            WICED_BT_TRACE("\n\r");
+        }
     }
     else if(myDev == &devices[focusDevice])
     {
@@ -109,7 +114,7 @@ scan_device_t *dt_addDevice(wiced_bt_ble_scan_results_t *scanDev, uint8_t *advDa
                 WICED_BT_TRACE("%02X ", advData[i]);
             WICED_BT_TRACE("\n\r");
         }
-        rb_insert(advData);
+        rb_insert(advData, myDev->rssi, time);
     }
 
     myDev->rssi = scanDev->rssi;

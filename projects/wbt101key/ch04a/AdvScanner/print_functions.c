@@ -24,7 +24,8 @@ void blePrintAdvPacketData(uint8_t *data,int len,char *pad);
 
 
 /* ----- Variable declarations ----- */
-uint8_t page_num = 0;
+uint8_t page_num_m = 0;
+uint8_t page_num_r = 0;
 
 
 /* Clear the terminal and reset the cursor position */
@@ -40,7 +41,7 @@ void clear_terminal()
 }
 
 /* Print unprocessed device data */
-void printDeviceOneLine(scan_device_t *device, uint32_t index)
+void printDeviceOneLine(scan_device_t *device, uint32_t index, wiced_bool_t extra_data)
 {
     /* Print the index, address, and data length */
     uint32_t length;
@@ -100,22 +101,33 @@ void printDeviceOneLine(scan_device_t *device, uint32_t index)
     else
         WICED_BT_TRACE("  | ");
 
+    if(extra_data == WICED_FALSE)
+        WICED_BT_TRACE("  ");
+
     // Print the time since the device was last seen
     uint32_t time_dif = current_time() - device->time_stamp;
     if(time_dif < 60){
-        WICED_BT_TRACE(" %2ds | ", time_dif);
+        WICED_BT_TRACE(" %2ds", time_dif);
     }else if(time_dif < 3600){
         time_dif/=60;
-        WICED_BT_TRACE(" %2dm | ", time_dif);
+        WICED_BT_TRACE(" %2dm", time_dif);
     }else if(time_dif < 86400){
         time_dif/=3600;
-        WICED_BT_TRACE(" %2dh | ", time_dif);
+        WICED_BT_TRACE(" %2dh", time_dif);
     }else if(time_dif < 864000){
         time_dif/=86400;
-        WICED_BT_TRACE("  %dd | ", time_dif);
+        WICED_BT_TRACE("  %dd", time_dif);
     }else{
-        WICED_BT_TRACE(" >9d | ");
+        WICED_BT_TRACE(" >9d");
     }
+
+    if(extra_data == WICED_FALSE)
+    {
+        WICED_BT_TRACE("\n\r");
+        return;
+    }
+
+    WICED_BT_TRACE(" | ");
 
     // Print the RSSI of the device
     WICED_BT_TRACE("%4d | ", device->rssi);
@@ -141,22 +153,46 @@ void printDeviceTableOneLine()
 
     //Print device data
     for(int i=0;i<dt_getNumDevices();i++)
-        printDeviceOneLine(&devices[i], i);
+        printDeviceOneLine(&devices[i], i, WICED_TRUE);
 }
 
 /* Increment/Decrement multiline table page */
-void incrementPageNum()
+void incrementPageNum_m()
 {
     uint8_t max_pages = dt_getNumDevices()/PAGE_SIZE;
     if(dt_getNumDevices() % PAGE_SIZE)
         max_pages++;
-    if(page_num < max_pages - 1)
-        page_num++;
+    if(page_num_m < max_pages - 1)
+        page_num_m++;
 }
-void decrementPageNum()
+void decrementPageNum_m()
 {
-    if(page_num > 0)
-        page_num--;
+    if(page_num_m > 0)
+        page_num_m--;
+}
+
+/* Increment/Decrement recent packet table page */
+void incrementPageNum_r()
+{
+    uint8_t max_pages = 1;
+    if(rb_size() > 6)
+        max_pages++;
+    if(rb_size() > 12)
+        max_pages++;
+    if(page_num_r < max_pages - 1)
+        page_num_r++;
+}
+void decrementPageNum_r()
+{
+    if(page_num_r > 0)
+        page_num_r--;
+}
+
+/* Reset table page numbers */
+void reset_tables()
+{
+    page_num_r = 0;
+    page_num_m = 0;
 }
 
 /* Print a table of both processed and unprocessed device data */
@@ -176,12 +212,13 @@ void printDeviceTableMultiLine()
     WICED_BT_TRACE("%sDecoded Data\n\r", PAD);
 
     // Print device data
-    for(int i = 0; i < PAGE_SIZE && (index = i+PAGE_SIZE*page_num) < dt_getNumDevices(); i++)
+    char *pad = "     |                   |     |            |   |   |   |      |      +";
+    for(int i = 0; i < PAGE_SIZE && (index = i+PAGE_SIZE*page_num_m) < dt_getNumDevices(); i++)
     {
         WICED_BT_TRACE("%s%s%s\n\r", FIRST_BAR, SHORT_BAR, EXTEND);
         len = dt_advGetLength(devices[index].data);
-        printDeviceOneLine(&devices[index], index);
-        WICED_BT_TRACE("     |                   |     |            |   |   |   |      |      +%s%s\n\r", SHORT_BAR, EXTEND);
+        printDeviceOneLine(&devices[index], index, WICED_TRUE);
+        WICED_BT_TRACE("%s%s%s\n\r", pad, SHORT_BAR, EXTEND);
         blePrintAdvPacketData(devices[index].data,len,PAD);
     }
 
@@ -189,12 +226,15 @@ void printDeviceTableMultiLine()
     uint8_t max_pages = dt_getNumDevices()/PAGE_SIZE;
     if(dt_getNumDevices() % PAGE_SIZE)
         max_pages++;
-    WICED_BT_TRACE("Page %d out of %d\n\r", page_num + 1, max_pages);
+    WICED_BT_TRACE("Page %d out of %d\n\r", page_num_m + 1, max_pages);
 }
 
 /* Print the sixteen most recent advertising packets of the filtered device */
 void printRecentFilterData()
 {
+    // Clear the screen
+    clear_terminal();
+
     //Retrieve a pointer to the filtered device
     scan_device_t *devices = dt_getTable();
     uint32_t focusDevice = dt_getFocus();
@@ -203,22 +243,56 @@ void printRecentFilterData()
     WICED_BT_TRACE( "\n\r" );
     WICED_BT_TRACE("----- Recent Filter Data -----\n\r");
     WICED_BT_TRACE( "\n\r" );
-    WICED_BT_TRACE("----------- Device -----------\n\r");
-    WICED_BT_TRACE( "\n\r" );
-    WICED_BT_TRACE("%s%s\n\r", FIRST_BAR, SHORT_BAR);
-    WICED_BT_TRACE("%s| Data\n\r", HEADER);
-    WICED_BT_TRACE("%s%s\n\r", FIRST_BAR, SHORT_BAR);
+    //WICED_BT_TRACE("----------- Device -----------\n\r");
+    //WICED_BT_TRACE( "\n\r" );
+    WICED_BT_TRACE("-----+-------------------+-----+------------+---+---+---+-----------\n\r");
+    WICED_BT_TRACE("  #  |      Address      | Len |    Name    | E | I | C | Last Seen\n\r");
+    WICED_BT_TRACE("-----+-------------------+-----+------------+---+---+---+-----------\n\r");
 
     // Print unprocessed device data
-    printDeviceOneLine(&devices[focusDevice], focusDevice);
-    WICED_BT_TRACE("%s%s\n\r", FIRST_BAR, SHORT_BAR);
-    WICED_BT_TRACE( "\n\r" );
-    WICED_BT_TRACE("------------ Data ------------\n\r");
+    printDeviceOneLine(&devices[focusDevice], focusDevice, WICED_FALSE);
+    WICED_BT_TRACE("-----+-------------------+-----+------------+---+---+---+-----------\n\r");
+    //WICED_BT_TRACE( "\n\r" );
+    //WICED_BT_TRACE("------------ Data ------------\n\r");
 
-    // Print the 16 most recent advertising packets
-    rb_print();
-    WICED_BT_TRACE("---------- End Data ----------\n\r");
+    // Print the 18 most recent advertising packets (pages of 6)
+    rb_print_num(page_num_r*6, 6);
+
     WICED_BT_TRACE( "\n\r" );
+
+    //Print page numbers
+    uint8_t max_pages = 1;
+    if(rb_size() > 6)
+        max_pages++;
+    if(rb_size() > 12)
+        max_pages++;
+    WICED_BT_TRACE("Page %d out of %d\n\r", page_num_r + 1, max_pages);
+}
+
+void printMostRecentFilterData()
+{
+    WICED_BT_TRACE("\n\r");
+
+    // Print the table header
+    WICED_BT_TRACE("%s%s%s\n\r", FIRST_BAR, SHORT_BAR, EXTEND);
+    WICED_BT_TRACE("%sData\n\r", PAD);
+    WICED_BT_TRACE("%s+%s%s\n\r", HEADER, SHORT_BAR, EXTEND);
+    WICED_BT_TRACE("%sDecoded Data\n\r", PAD);
+
+    uint32_t len;
+    scan_device_t *devices = dt_getTable();
+    uint32_t focusDevice = dt_getFocus();
+    char *pad = "     |                   |     |            |   |   |   |      |      +";
+
+    // Print device data
+    WICED_BT_TRACE("%s%s%s\n\r", FIRST_BAR, SHORT_BAR, EXTEND);
+    len = dt_advGetLength(devices[focusDevice].data);
+    printDeviceOneLine(&devices[focusDevice], focusDevice, WICED_TRUE);
+    WICED_BT_TRACE("%s%s%s\n\r", pad, SHORT_BAR, EXTEND);
+    blePrintAdvPacketData(devices[focusDevice].data,len,PAD);
+
+    WICED_BT_TRACE("%s%s%s\n\r", FIRST_BAR, SHORT_BAR, EXTEND);
+    WICED_BT_TRACE("\n\r");
 }
 
 // print each field on one line
