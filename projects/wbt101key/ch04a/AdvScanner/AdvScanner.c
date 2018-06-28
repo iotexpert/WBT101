@@ -302,6 +302,7 @@ void start_singleline_table()
     }
     else
     {
+        screen_number = 0;
         wiced_hal_puart_print( "\n\r" );
         printDeviceTableOneLine();
         wiced_hal_puart_print( "\n\r" );
@@ -314,7 +315,7 @@ void start_multiline_table()
         WICED_BT_TRACE("No devices.\n\r");
         return;
     }
-    old_print = print;
+        old_print = print;
     print = WICED_FALSE;
     screen_number = 1;
     printDeviceTableMultiLine();
@@ -328,13 +329,14 @@ void start_beacon_table()
     }
     if(dt_getNumBeacons() > PAGE_SIZE_S)
     {
-        old_print = print;
+            old_print = print;
         print = WICED_FALSE;
         screen_number = 4;
         printBeaconTable();
     }
     else
     {
+        screen_number = 0;
         wiced_hal_puart_print( "\n\r" );
         printBeaconTable();
         wiced_hal_puart_print( "\n\r" );
@@ -345,9 +347,9 @@ void start_recent_table()
     if(dt_getNumDevices() == 0)
     {
         WICED_BT_TRACE("No data.\n\r");
-        return;;
+        return;
     }
-    old_print = print;
+        old_print = print;
     print = WICED_FALSE;
     screen_number = 2;
     printRecentFilterData();
@@ -536,18 +538,22 @@ void rx_cback( void *data )
         }
         case 't':
             /* Dump table */
+            print = old_print;
             start_singleline_table();
             break;
         case 'b':
             /* Dump beacon table */
+            print = old_print;
             start_beacon_table();
             break;
         case 'm':
             /* Dump multiline table */
+            print = old_print;
             start_multiline_table();
             break;
         case 'r':
             /* Dump recent filtered packets */
+            print = old_print;
             start_recent_table();
             break;
         case 0x1B:
