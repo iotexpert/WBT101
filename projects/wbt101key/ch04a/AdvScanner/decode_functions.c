@@ -1,4 +1,5 @@
 #include "wiced.h"
+#include "wiced_bt_ble.h"
 #include "wiced_bt_trace.h"
 
 #include "company_ids.h"
@@ -86,6 +87,55 @@ void bleAdInfoDecodePowerData(uint8_t *bytes)
     WICED_BT_TRACE("%d ",(signed int)power);
 }
 
+void bleAdInfoDecodeSlaveIntervalRange(uint8_t *bytes)
+{
+    WICED_BT_TRACE("%dms-", (5*(bytes[2] | (bytes[3]<<8)))>>2);
+    WICED_BT_TRACE("%dms ", (5*(bytes[4] | (bytes[5]<<8)))>>2);
+}
+
+void bleAdInfoDecodeAdvertisingInterval(uint8_t *bytes)
+{
+    WICED_BT_TRACE("%dms ", (5*(bytes[2] | (bytes[3]<<8)))>>3);
+}
+
+void bleAdInfoDecodeLERole(uint8_t *bytes)
+{
+    int count = 0;
+
+    WICED_BT_TRACE("%02X ",bytes[2]);
+
+    if(bytes[2] == 0x00)
+        WICED_BT_TRACE("Only Peripheral Role supported ");
+
+    if(bytes[2] == 0x01)
+        WICED_BT_TRACE("Only Central Role supported ");
+
+    if(bytes[2] == 0x02)
+        WICED_BT_TRACE("Peripheral Role preferred ");
+
+    if(bytes[2] == 0x03)
+        WICED_BT_TRACE("Central Role preferred ");
+}
+
+void bleAdInfoDecodeSecurityManagerOOB(uint8_t *bytes)
+{
+    int count = 0;
+
+    WICED_BT_TRACE("%02X ",bytes[2]);
+
+    if(bytes[2] & 0x00)
+        WICED_BT_TRACE("OOB Flags Field ");
+
+    if(bytes[2] & 0x01)
+        WICED_BT_TRACE("LE supported ");
+
+    if(bytes[2] & 0x02)
+        WICED_BT_TRACE("Simultaneous LE and BR/EDR Capable ");
+
+    if(bytes[2] & 0x03)
+        WICED_BT_TRACE("Address type ");
+}
+
 void bleAdInfoDecode16bitServiceUUID(uint8_t *bytes)
 {
     bleFormat16bitUUID(&bytes[2]);
@@ -115,7 +165,7 @@ struct advDecode_t advDecodeArray[] = {
         {0x05, "32-bit Service UUID",bleAdInfoDecode32bitServiceUUID},
         {0x06, "128-bit Service UUIDs", bleAdInfoDecode128bitServiceUUID},
         {0x07, "128-bit Service UUIDs", bleAdInfoDecode128bitServiceUUID},
-        {0x08, "Short Name", bleAdInfoDecodeName},
+        {0x08, "Short Name ", bleAdInfoDecodeName},
         {0x09, "Complete Name", bleAdInfoDecodeName},
         {0x0A, "Tx Power Level", bleAdInfoDecodePowerData},
         {0x0D, "Device Class", bleAdInfoDumpBytes},
@@ -125,8 +175,8 @@ struct advDecode_t advDecodeArray[] = {
         {0x0F, "Pairing Randomizer R-192", bleAdInfoDumpBytes},
         {0x10, "Device ID", bleAdInfoDumpBytes},
         {0x10, "Security Manager TK Value", bleAdInfoDumpBytes},
-        {0x11, "Security Manager Out of Band Flags", bleAdInfoDumpBytes},
-        {0x12, "Slave Connection Interval Range", bleAdInfoDumpBytes},
+        {0x11, "Security Manager Out of Band Flags", bleAdInfoDecodeSecurityManagerOOB},
+        {0x12, "Slave Connection Interval Range", bleAdInfoDecodeSlaveIntervalRange},
         {0x14, "16-bit Service Solicitation UUIDs", bleAdInfoDecode16bitServiceUUID},
         {0x15, "128-bit Service Solicitation UUIDs", bleAdInfoDecode128bitServiceUUID},
         {0x16, "Service Data", bleAdInfoDumpBytes},
@@ -134,9 +184,9 @@ struct advDecode_t advDecodeArray[] = {
         {0x17, "Public Target Address", bleAdInfoDumpBytes},
         {0x18, "Random Target Address", bleAdInfoDumpBytes},
         {0x19, "Appearance", bleAdInfoDumpBytes},
-        {0x1A, "Advertising Interval", bleAdInfoDumpBytes},
+        {0x1A, "Advertising Interval", bleAdInfoDecodeAdvertisingInterval},
         {0x1B, "LE Bluetooth Device Address", bleAdInfoDumpBytes},
-        {0x1C, "LE Role", bleAdInfoDumpBytes},
+        {0x1C, "LE Role", bleAdInfoDecodeLERole},
         {0x1D, "Simple Pairing Hash C-256", bleAdInfoDumpBytes},
         {0x1E, "Simple Pairing Randomizer R-256", bleAdInfoDumpBytes},
         {0x1F, "32-bit Service Solitication UUIDs",bleAdInfoDecode32bitServiceUUID},
