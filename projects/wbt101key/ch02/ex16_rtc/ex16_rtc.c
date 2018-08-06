@@ -98,7 +98,8 @@ wiced_result_t hal_gpio_app_management_cback(
                 NULL                            // Function argument
         );
 
-        rtcConfig.oscillatorFrequencykHz= 32;
+        rtcConfig.rtcRefClock = RTC_REF_CLOCK_SRC_32KHZ;
+        rtcConfig.oscillatorFrequencykHz = RTC_REF_CLOCK_SRC_32KHZ;
         rtc_init();
 
         break;
@@ -110,6 +111,10 @@ wiced_result_t hal_gpio_app_management_cback(
     return result;
 }
 
+/*
+ * Callback for Button 2.
+ * Switches between which value (hour, month, day, etc.) is being changed)
+ */
 uint8_t b2_var = 0;
 void button2_cback( void *data, uint8_t port_pin )
 {
@@ -137,6 +142,10 @@ void button2_cback( void *data, uint8_t port_pin )
     rtc_setRTCTime(&rtcTime);
 }
 
+/*
+ * Callback for Button 1.
+ * Increments the value that is currently being changed.
+ */
 void button1_cback( void *data, uint8_t port_pin )
 {
     b2_var = (b2_var + 1) % 5;
