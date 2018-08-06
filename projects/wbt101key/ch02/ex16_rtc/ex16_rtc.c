@@ -118,28 +118,28 @@ wiced_result_t hal_gpio_app_management_cback(
 uint8_t b2_var = 0;
 void button2_cback( void *data, uint8_t port_pin )
 {
-    RtcTime rtcTime;
-    rtc_getRTCTime(&rtcTime);
+    RtcTime current_time;
+    rtc_getRTCTime(&current_time);
 
     switch(b2_var){
     case 0:
-        rtcTime.minute++;
+        current_time.minute++;
         break;
     case 1:
-        rtcTime.hour++;
+        current_time.hour++;
         break;
     case 2:
-        rtcTime.day++;
+        current_time.day++;
         break;
     case 3:
-        rtcTime.month++;
+        current_time.month++;
         break;
     case 4:
-        rtcTime.year++;
+        current_time.year++;
         break;
     }
 
-    rtc_setRTCTime(&rtcTime);
+    rtc_setRTCTime(&current_time);
 }
 
 /*
@@ -173,7 +173,7 @@ void display( uint32_t arg )
 {
     // Buffer for the string to print
     char msg[11];
-    RtcTime rtcTime;
+    RtcTime current_time;
 
     /* Initialize the OLED */
     u8g_t u8g;
@@ -183,7 +183,7 @@ void display( uint32_t arg )
     for(;;)
     {
         /* Get latest time data from the RTC */
-        rtc_getRTCTime(&rtcTime);
+        rtc_getRTCTime(&current_time);
 
         /* Display data on the OLED */
         u8g_FirstPage( &u8g );
@@ -194,10 +194,10 @@ void display( uint32_t arg )
             u8g_SetFont( &u8g, u8g_font_unifont );
             u8g_SetFontPosTop( &u8g );
 
-            snprintf(msg, 9, "%02d:%02d:%02d", rtcTime.hour, rtcTime.minute, rtcTime.second);
+            snprintf(msg, 9, "%02d:%02d:%02d", current_time.hour, current_time.minute, current_time.second);
             u8g_DrawStr( &u8g, 31, 18, msg );
 
-            snprintf(msg, 11, "%02d/%02d/%04d", rtcTime.month+1, rtcTime.day, rtcTime.year);
+            snprintf(msg, 11, "%02d/%02d/%04d", current_time.month+1, current_time.day, current_time.year);
             u8g_DrawStr( &u8g, 24, 33, msg );
 
         } while( u8g_NextPage( &u8g ) );
