@@ -15,7 +15,7 @@
 /*
  * Definitions
  */
-#define WICED_DEVICE_NAME                  "Motion"     /*Device name during device discovery */
+#define WICED_DEVICE_NAME                  "key_lowp"     /*Device name during device discovery */
 
 /*****************************************************************************
  * wiced_bt core stack configuration
