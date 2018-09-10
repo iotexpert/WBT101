@@ -204,6 +204,12 @@ wiced_bt_dev_status_t advscanner_management_callback( wiced_bt_management_evt_t 
         wiced_hal_puart_set_watermark_level( 1 );
         wiced_hal_puart_enable_rx();
 
+        (*((uint32_t *)0x338408)) = 0x48C;
+        (*((uint32_t *)0x338440)) = 0x47C;
+        (*((uint32_t *)0x338208)) = 0x600;
+        (*((uint32_t *)0x338240)) = 0x600;
+
+
         break;
     case BTM_DISABLED_EVT:
         /* Bluetooth Controller and Host Stack Disabled */

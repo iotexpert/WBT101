@@ -306,7 +306,7 @@ wiced_bool_t isCypress(uint8_t *data)
 
     if(
             mfgData &&
-            mfgLen == 3 &&
+            //mfgLen == 3 &&
             mfgData[0] == 0x31 &&
             mfgData[1] == 0x01
     )
