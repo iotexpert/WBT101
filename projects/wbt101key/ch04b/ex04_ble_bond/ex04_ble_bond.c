@@ -134,7 +134,7 @@ uint8_t ex04_ble_bond_capsense_buttons_cccd[]      = {0x00,0x00};
 gatt_db_lookup_table ex04_ble_bond_gatt_db_ext_attr_tbl[] =
 {
     /* { attribute handle,                       maxlen, curlen, attribute data } */
-    {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,      12,     12,     ex04_ble_bond_generic_access_device_name},
+    {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE,      8,      8,     ex04_ble_bond_generic_access_device_name},
     {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,       2,      2,      ex04_ble_bond_generic_access_appearance},
     {HDLC_CAPSENSE_BUTTONS_VALUE,                3,      3,      ex04_ble_bond_capsense_buttons},
     {HDLD_CAPSENSE_BUTTONS_CLIENT_CONFIGURATION, 2,      2,      ex04_ble_bond_capsense_buttons_cccd},
