@@ -47,6 +47,7 @@ static wiced_transport_buffer_pool_t* transport_pool = NULL;
 
 static wiced_timer_t blinkTimer;
 static uint32_t connectedLEDState=0;
+static uint16_t conn_id=0;
 
 
 /*******************************************************************
@@ -183,9 +184,8 @@ void key_led_app_init(void)
     /* Start Undirected LE Advertisements on device startup.
      * The corresponding parameters are contained in 'wiced_bt_cfg.c' */
     /* TODO: Make sure that this is the desired behavior. */
-    wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
     wiced_rtos_init_timer(&blinkTimer,500,blinkTimerHandler,0);
-    wiced_rtos_start_timer(&blinkTimer);
+    wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
 }
 
 /* Set Advertisement Data */
@@ -314,6 +314,19 @@ wiced_bt_dev_status_t key_led_management_callback( wiced_bt_management_evt_t eve
         if ( BTM_BLE_ADVERT_OFF == *p_adv_mode )
         {
             key_led_advertisement_stopped();
+
+            wiced_rtos_stop_timer(&blinkTimer);
+            if(conn_id == 0)
+            {
+                connectedLEDState = 0;
+                wiced_hal_gpio_set_pin_output(WICED_GPIO_PIN_LED_1, connectedLEDState);
+            }
+
+        }
+        else
+        {
+            wiced_rtos_start_timer(&blinkTimer);
+
         }
         break;
     case BTM_USER_CONFIRMATION_REQUEST_EVT:
@@ -489,20 +502,19 @@ wiced_bt_gatt_status_t key_led_connect_callback( wiced_bt_gatt_connection_status
             wiced_rtos_stop_timer(&blinkTimer);
             connectedLEDState = 1;
             wiced_hal_gpio_set_pin_output(WICED_GPIO_PIN_LED_1, connectedLEDState);
+            conn_id = p_conn_status->conn_id;
 
-
-            /* TODO: Handle the connection */
         }
         else
         {
             // Device has disconnected
             WICED_BT_TRACE("Disconnected : BDA '%B', Connection ID '%d', Reason '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id, p_conn_status->reason );
+            conn_id = 0;
 
             /* TODO: Handle the disconnection */
 
             /* restart the advertisements */
             wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
-            wiced_rtos_start_timer(&blinkTimer);
 
         }
         status = WICED_BT_GATT_SUCCESS;
