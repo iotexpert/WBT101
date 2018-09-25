@@ -100,7 +100,7 @@
     <Service predefined="false" primary="true">
         <Name>Wiced101</Name>
         <Uuid>ed 4e 7e d0 cd 55 4e e1 9c 99 34 2e 3c da 86 2d</Uuid>
-        <Description>Vendor Specific Service: key_LED</Description>
+        <Description>Vendor Specific Service: WicedLED</Description>
         <Characteristic mandatory="false" predefined="false">
             <Name>LED</Name>
             <Uuid>24 6a 66 04 ef dd 45 e0 af 57 43 df 1f 56 83 c4</Uuid>

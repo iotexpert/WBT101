@@ -27,6 +27,8 @@
 #include "wiced_bt_stack.h"
 #include "wiced_bt_app_common.h"
 #include "wiced_hal_wdog.h"
+#include "wiced_rtos.h"
+#include "wiced_timer.h"
 
 
 /*******************************************************************
@@ -42,6 +44,11 @@ extern const wiced_bt_cfg_settings_t wiced_bt_cfg_settings;
 extern const wiced_bt_cfg_buf_pool_t wiced_bt_cfg_buf_pools[WICED_BT_CFG_NUM_BUF_POOLS];
 // Transport pool for sending RFCOMM data to host
 static wiced_transport_buffer_pool_t* transport_pool = NULL;
+
+static wiced_timer_t blinkTimer;
+static uint32_t connectedLEDState=0;
+static uint16_t conn_id=0;
+
 
 /*******************************************************************
  * Function Prototypes
@@ -106,7 +113,7 @@ gatt_db_lookup_table key_led_gatt_db_ext_attr_tbl[] =
     /* { attribute handle,                  maxlen, curlen, attribute data } */
     {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE, 7,      7,      key_led_generic_access_device_name},
     {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,  2,      2,      key_led_generic_access_appearance},
-    {HDLC_WICED101_LED_VALUE,               1,      1,      key_led_wicedled_led},
+    {HDLC_WICEDLED_LED_VALUE,               1,      1,      key_led_wicedled_led},
 };
 
 // Number of Lookup Table Entries
@@ -142,6 +149,16 @@ void application_start(void)
 
     /* Initialize Bluetooth Controller and Host Stack */
     wiced_bt_stack_init(key_led_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
+
+}
+
+
+void blinkTimerHandler(uint32_t arg)
+{
+
+    wiced_hal_gpio_set_pin_output(WICED_GPIO_PIN_LED_1, connectedLEDState);
+    connectedLEDState = !connectedLEDState;
+
 }
 
 /*
@@ -167,6 +184,7 @@ void key_led_app_init(void)
     /* Start Undirected LE Advertisements on device startup.
      * The corresponding parameters are contained in 'wiced_bt_cfg.c' */
     /* TODO: Make sure that this is the desired behavior. */
+    wiced_init_timer(&blinkTimer,blinkTimerHandler,0,WICED_MILLI_SECONDS_PERIODIC_TIMER);
     wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
 }
 
@@ -296,6 +314,19 @@ wiced_bt_dev_status_t key_led_management_callback( wiced_bt_management_evt_t eve
         if ( BTM_BLE_ADVERT_OFF == *p_adv_mode )
         {
             key_led_advertisement_stopped();
+
+            wiced_stop_timer(&blinkTimer);
+            if(conn_id == 0)
+            {
+                connectedLEDState = 0;
+                wiced_hal_gpio_set_pin_output(WICED_GPIO_PIN_LED_1, connectedLEDState);
+            }
+
+        }
+        else
+        {
+            WICED_BT_TRACE("called timer start %d\r\n",   wiced_start_timer(&blinkTimer,500));
+
         }
         break;
     case BTM_USER_CONFIRMATION_REQUEST_EVT:
@@ -340,7 +371,7 @@ wiced_bt_gatt_status_t key_led_get_value( uint16_t attr_handle, uint16_t conn_id
                     break;
                 case HDLC_GENERIC_ACCESS_APPEARANCE_VALUE:
                     break;
-                case HDLC_WICED101_LED_VALUE:
+                case HDLC_WICEDLED_LED_VALUE:
                     break;
                 }
             }
@@ -400,7 +431,7 @@ wiced_bt_gatt_status_t key_led_set_value( uint16_t attr_handle, uint16_t conn_id
                 // For example you may need to write the value into NVRAM if it needs to be persistent
                 switch ( attr_handle )
                 {
-                case HDLC_WICED101_LED_VALUE:
+                case HDLC_WICEDLED_LED_VALUE:
                     /* Turn the LED on/off depending on the value written to the GATT database */
                     WICED_BT_TRACE("Output = %d\n",key_led_wicedled_led[0]);
                     wiced_hal_gpio_set_pin_output(WICED_GPIO_PIN_LED_2, key_led_wicedled_led[0]);
@@ -468,18 +499,23 @@ wiced_bt_gatt_status_t key_led_connect_callback( wiced_bt_gatt_connection_status
         {
             // Device has connected
             WICED_BT_TRACE("Connected : BDA '%B', Connection ID '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id );
+            wiced_stop_timer(&blinkTimer);
+            connectedLEDState = 1;
+            wiced_hal_gpio_set_pin_output(WICED_GPIO_PIN_LED_1, connectedLEDState);
+            conn_id = p_conn_status->conn_id;
 
-            /* TODO: Handle the connection */
         }
         else
         {
             // Device has disconnected
             WICED_BT_TRACE("Disconnected : BDA '%B', Connection ID '%d', Reason '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id, p_conn_status->reason );
+            conn_id = 0;
 
             /* TODO: Handle the disconnection */
 
             /* restart the advertisements */
             wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
+
         }
         status = WICED_BT_GATT_SUCCESS;
     }
