@@ -28,7 +28,9 @@
 #include "wiced_transport.h"
 #include "wiced_hal_pspi.h"
 #include "wiced_bt_cfg.h"
+#include "wiced_hal_puart.h"
 
+#include "wiced_memory.h"
 
 /*******************************************************************
  * Constant Definitions
@@ -47,6 +49,9 @@ extern uint8_t BT_LOCAL_NAME[];
 static wiced_transport_buffer_pool_t* transport_pool = NULL;
 static const uint8_t matchServiceUUID[] = {0xF0 ,0x34 ,0x9B ,0x5F ,0x80 ,0x00 ,0x00 ,0x80 ,0x00 ,0x10 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 };
 
+static uint16_t conn_id=0;
+static uint16_t ledHandle=0x0E;
+static uint16_t cccdHandle=0x12;
 
 /*******************************************************************
  * Function Prototypes
@@ -59,6 +64,10 @@ static uint32_t              hci_control_process_rx_cmd          ( uint8_t* p_da
 static void                  ex01_scanner_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
 static void newAdvCallback(wiced_bt_ble_scan_results_t *p_scan_result, uint8_t *p_adv_data);
+static void                  rx_cback                          ( void *data );
+static wiced_bt_gatt_status_t gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_data);
+
+
 
 /*******************************************************************
  * Macro Definitions
@@ -129,6 +138,18 @@ void ex01_scanner_app_init(void)
     /* Allow peer to pair */
     wiced_bt_set_pairable_mode(WICED_TRUE, 0);
 
+    /* Initialize the UART for input */
+     wiced_hal_puart_init( );
+     wiced_hal_puart_flow_off( );
+     wiced_hal_puart_set_baudrate( 115200 );
+     /* Enable receive and the interrupt */
+     wiced_hal_puart_register_interrupt( rx_cback );
+     /* Set watermark level to 1 to receive interrupt up on receiving each byte */
+     wiced_hal_puart_set_watermark_level( 1 );
+     wiced_hal_puart_enable_rx();
+
+
+
 }
 
 /* TODO: This function should be called when the device needs to be reset */
@@ -149,10 +170,15 @@ void newAdvCallback(wiced_bt_ble_scan_results_t *p_scan_result, uint8_t *p_adv_d
     uint8_t *serviceUUID = wiced_bt_ble_check_advertising_data(p_adv_data,BTM_BLE_ADVERT_TYPE_128SRV_COMPLETE,&length);
     if(serviceUUID && memcmp(serviceUUID,matchServiceUUID,16) == 0)
     {
-        // Uncomment this if you want to printout services that match
-        //WICED_BT_TRACE("Host = %B Found Service UUID\r\n ",p_scan_result->remote_bd_addr);
+        WICED_BT_TRACE("Host = %B Found Service UUID\r\n ",p_scan_result->remote_bd_addr);
+
+        wiced_bt_ble_scan(BTM_BLE_SCAN_TYPE_NONE,FALSE,newAdvCallback);
+
+        wiced_bt_gatt_le_connect(p_scan_result->remote_bd_addr,p_scan_result->ble_addr_type,BLE_CONN_MODE_HIGH_DUTY,WICED_TRUE);
     }
 
+
+    #if 0
     uint8_t *name = wiced_bt_ble_check_advertising_data(p_adv_data,BTM_BLE_ADVERT_TYPE_NAME_COMPLETE,&length);
     if(name && strncmp(name,"capled",length))
     {
@@ -170,6 +196,7 @@ void newAdvCallback(wiced_bt_ble_scan_results_t *p_scan_result, uint8_t *p_adv_d
         }
         WICED_BT_TRACE("\r\n");
     }
+#endif
 }
 
 
@@ -194,32 +221,35 @@ wiced_bt_dev_status_t ex01_scanner_management_callback( wiced_bt_management_evt_
         wiced_bt_dev_register_hci_trace(ex01_scanner_trace_callback);
 #endif
 
-        WICED_BT_TRACE("Bluetooth Enabled (%s)\n",
+        WICED_BT_TRACE("Bluetooth Enabled (%s)\r\n",
                 ((WICED_BT_SUCCESS == p_event_data->enabled.status) ? "success" : "failure"));
+
+        wiced_bt_gatt_register( gatt_callback );
 
         if (WICED_BT_SUCCESS == p_event_data->enabled.status)
         {
             /* Bluetooth is enabled */
             wiced_bt_dev_read_local_addr(bda);
-            WICED_BT_TRACE("Local Bluetooth Address: [%B]\n", bda);
+            WICED_BT_TRACE("Local Bluetooth Address: [%B]\r\n", bda);
 
             /* Perform application-specific initialization */
             ex01_scanner_app_init();
-            wiced_bt_ble_scan(BTM_BLE_SCAN_TYPE_HIGH_DUTY,FALSE,newAdvCallback);
         }
+
+
         break;
     case BTM_DISABLED_EVT:
         /* Bluetooth Controller and Host Stack Disabled */
-        WICED_BT_TRACE("Bluetooth Disabled\n");
+        WICED_BT_TRACE("Bluetooth Disabled\r\n");
         break;
     case BTM_SECURITY_REQUEST_EVT:
         /* Security Request */
-        WICED_BT_TRACE("Security Request\n");
+        WICED_BT_TRACE("Security Request\r\n");
         wiced_bt_ble_security_grant(p_event_data->security_request.bd_addr, WICED_BT_SUCCESS);
         break;
     case BTM_PAIRING_IO_CAPABILITIES_BLE_REQUEST_EVT:
         /* Request for Pairing IO Capabilities (BLE) */
-        WICED_BT_TRACE("BLE Pairing IO Capabilities Request\n");
+        WICED_BT_TRACE("BLE Pairing IO Capabilities Request\r\n");
         /* No IO Capabilities on this Platform */
         p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_NONE;
         p_event_data->pairing_io_capabilities_ble_request.oob_data = BTM_OOB_NONE;
@@ -231,7 +261,7 @@ wiced_bt_dev_status_t ex01_scanner_management_callback( wiced_bt_management_evt_
     case BTM_PAIRING_COMPLETE_EVT:
         /* Pairing is Complete */
         p_ble_info = &p_event_data->pairing_complete.pairing_complete_info.ble;
-        WICED_BT_TRACE("Pairing Complete %d.\n", p_ble_info->reason);
+        WICED_BT_TRACE("Pairing Complete %d.\r\n", p_ble_info->reason);
         break;
     case BTM_ENCRYPTION_STATUS_EVT:
         /* Encryption Status Change */
@@ -239,18 +269,18 @@ wiced_bt_dev_status_t ex01_scanner_management_callback( wiced_bt_management_evt_
         break;
     case BTM_PAIRED_DEVICE_LINK_KEYS_REQUEST_EVT:
         /* Paired Device Link Keys Request */
-        WICED_BT_TRACE("Paired Device Link Request Keys Event\n");
+        WICED_BT_TRACE("Paired Device Link Request Keys Event\r\n");
         /* Device/app-specific TODO: HANDLE PAIRED DEVICE LINK REQUEST KEY - retrieve from NVRAM, etc */
 #if 0
         if (ex01_scanner_read_link_keys( &p_event_data->paired_device_link_keys_request ))
         {
-            WICED_BT_TRACE("Key Retrieval Success\n");
+            WICED_BT_TRACE("Key Retrieval Success\r\n");
         }
         else
 #endif
         /* Until key retrieval implemented above, just fail the request - will cause re-pairing */
         {
-            WICED_BT_TRACE("Key Retrieval Failure\n");
+            WICED_BT_TRACE("Key Retrieval Failure\r\n");
             status = WICED_BT_ERROR;
         }
         break;
@@ -262,12 +292,117 @@ wiced_bt_dev_status_t ex01_scanner_management_callback( wiced_bt_management_evt_
         WICED_BT_TRACE("numeric_value: %d\n", p_event_data->user_confirmation_request.numeric_value);
         wiced_bt_dev_confirm_req_reply( WICED_BT_SUCCESS , p_event_data->user_confirmation_request.bd_addr);
         break;
+
+    case BTM_BLE_SCAN_STATE_CHANGED_EVT:
+        WICED_BT_TRACE("Scan State Changed\r\n");
+        break;
+
     default:
-        WICED_BT_TRACE("Unhandled Bluetooth Management Event: 0x%x (%d)\n", event, event);
+        WICED_BT_TRACE("Unhandled Bluetooth Management Event: 0x%x (%d)\r\n", event, event);
         break;
     }
 
     return status;
+}
+
+// writeLED is a function to send either a 1 or a 0 to the LED Characteristic
+// This function will check and see if there is a connection and we know the handle of the LED
+// It will then setup a write... and then write
+void writeLed(uint8_t val)
+{
+    if(conn_id == 0 && ledHandle != 0)
+        return;
+
+
+    wiced_bt_gatt_value_t *p_write = ( wiced_bt_gatt_value_t* )wiced_bt_get_buffer( sizeof( wiced_bt_gatt_value_t ));
+    if ( p_write )
+        {
+            p_write->handle   = ledHandle;
+            p_write->offset   = 0;
+            p_write->len      = 1;
+            p_write->auth_req = GATT_AUTH_REQ_NONE;
+            p_write->value[0] = val;
+
+            wiced_bt_gatt_status_t status = wiced_bt_gatt_send_write ( conn_id, GATT_WRITE, p_write );
+
+            WICED_BT_TRACE("wiced_bt_gatt_send_write 0x%X\r\n", status);
+
+            wiced_bt_free_buffer( p_write );
+        }
+
+}
+// writeCCCD will write the CCCD to be 1 or 0 based on the input
+// It will first make sure that there is a valid handle and connection.
+void writeCCCD(uint16_t val)
+{
+    if(conn_id == 0 || cccdHandle == 0)
+        return;
+
+    // Notice the +1 because there are two bytes in the CCCD
+    wiced_bt_gatt_value_t *p_write = ( wiced_bt_gatt_value_t* )wiced_bt_get_buffer( sizeof( wiced_bt_gatt_value_t ) + 1 );
+    if ( p_write )
+    {
+        p_write->handle   = cccdHandle;
+        p_write->offset   = 0;
+        p_write->len      = 2;
+        p_write->auth_req = GATT_AUTH_REQ_NONE;
+        p_write->value[0] = val & 0xFF;
+        p_write->value[1] = val>>8 & 0xFF;
+
+        wiced_bt_gatt_status_t status = wiced_bt_gatt_send_write ( conn_id, GATT_WRITE, p_write );
+        WICED_BT_TRACE("wiced_bt_gatt_send_write 0x%X\r\n", status);
+        wiced_bt_free_buffer( p_write );
+    }
+}
+
+
+wiced_bt_gatt_status_t gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_data)
+{
+    wiced_bt_gatt_status_t result = WICED_BT_SUCCESS;
+
+    switch( event )
+    {
+    case GATT_CONNECTION_STATUS_EVT:
+        if ( p_data->connection_status.connected )
+        {
+            WICED_BT_TRACE("Connected\r\n");
+            wiced_bt_gatt_connection_status_t *p_conn_status = &p_data->connection_status;
+            conn_id         =  p_conn_status->conn_id;
+            WICED_BT_TRACE("Connection ID=%d\r\n",conn_id);
+        }
+        else
+        {
+            WICED_BT_TRACE(("Disconnected\r\n"));
+            conn_id = 0;
+        }
+        break;
+
+    case GATT_OPERATION_CPLT_EVT:
+
+        // When you get something back from the peripheral... print it out.. and all of its data
+
+        WICED_BT_TRACE("Gatt Event Complete Conn=%d Op=%d status=0x%X Handle=0x%X len=%d Data=",
+                p_data->operation_complete.conn_id,
+                p_data->operation_complete.op,
+                p_data->operation_complete.status,
+                p_data->operation_complete.response_data.handle,
+                p_data->operation_complete.response_data.att_value.len);
+
+        for(int i=0;i<p_data->operation_complete.response_data.att_value.len;i++)
+        {
+            WICED_BT_TRACE("%02X ",p_data->operation_complete.response_data.att_value.p_data[i]);
+
+        }
+        WICED_BT_TRACE("\r\n");
+
+        break;
+
+    default:
+        WICED_BT_TRACE(("Unknown GATT Event %d\r\n",event));
+        break;
+    }
+
+    return result;
 }
 
 
@@ -322,3 +457,67 @@ void ex01_scanner_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t lengt
     wiced_transport_send_hci_trace( transport_pool, type, length, p_data );
 }
 #endif
+
+
+void rx_cback( void *data )
+{
+    uint8_t  readbyte;
+    uint32_t focus;
+
+    /* Read one byte from the buffer and (unlike GPIO) reset the interrupt */
+    wiced_hal_puart_read( &readbyte );
+    wiced_hal_puart_reset_puart_interrupt();
+
+    switch (readbyte)
+    {
+
+    case 's':
+        WICED_BT_TRACE( "Scan On\n\r" );
+        wiced_bt_ble_scan(BTM_BLE_SCAN_TYPE_HIGH_DUTY,FALSE,newAdvCallback);
+        break;
+    case 'S':
+        WICED_BT_TRACE( "Scan Off\n\r" );
+        wiced_bt_ble_scan(BTM_BLE_SCAN_TYPE_NONE,FALSE,newAdvCallback);
+        break;
+
+    case '0':
+        WICED_BT_TRACE("LED Off\r\n");
+        writeLed(0);
+        break;
+
+    case '1':
+        WICED_BT_TRACE("LED On\r\n");
+        writeLed(1);
+        break;
+
+    case 'n':
+        WICED_BT_TRACE("CCCD On\r\n");
+        writeCCCD(1);
+        break;
+
+    case 'N':
+        WICED_BT_TRACE("CCCD Off\r\n");
+        writeCCCD(0);
+        break;
+
+    case 'd':
+        wiced_bt_gatt_disconnect(conn_id);
+        break;
+
+    case '?':
+        /* Print help */
+        WICED_BT_TRACE( "\n\r" );
+        WICED_BT_TRACE( "+------- Available Commands -------+\n\r" );
+        WICED_BT_TRACE( "|  s    Turn on Scanning           |\n\r" );
+        WICED_BT_TRACE( "|  S    Turn off Scanning          |\n\r" );
+        WICED_BT_TRACE( "|  0    LED Off                    |\n\r" );
+        WICED_BT_TRACE( "|  1    LED On                     |\n\r" );
+        WICED_BT_TRACE( "|  n    CCCD On                    |\n\r" );
+        WICED_BT_TRACE( "|  N    CCCD Off                   |\n\r" );
+        WICED_BT_TRACE( "|  d    disconnect                 |\n\r" );
+        WICED_BT_TRACE( "|  ?    Print Commands             |\n\r" );
+        WICED_BT_TRACE( "+----------------------------------+\n\r" );
+        WICED_BT_TRACE( "\n\r" );
+        break;
+    }
+}
