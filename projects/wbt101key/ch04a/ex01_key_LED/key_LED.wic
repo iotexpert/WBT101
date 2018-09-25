@@ -98,7 +98,7 @@
         </Characteristic>
     </Service>
     <Service predefined="false" primary="true">
-        <Name>WicedLED</Name>
+        <Name>Wiced101</Name>
         <Uuid>ed 4e 7e d0 cd 55 4e e1 9c 99 34 2e 3c da 86 2d</Uuid>
         <Description>Vendor Specific Service: key_LED</Description>
         <Characteristic mandatory="false" predefined="false">

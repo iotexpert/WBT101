@@ -106,7 +106,7 @@ gatt_db_lookup_table key_led_gatt_db_ext_attr_tbl[] =
     /* { attribute handle,                  maxlen, curlen, attribute data } */
     {HDLC_GENERIC_ACCESS_DEVICE_NAME_VALUE, 7,      7,      key_led_generic_access_device_name},
     {HDLC_GENERIC_ACCESS_APPEARANCE_VALUE,  2,      2,      key_led_generic_access_appearance},
-    {HDLC_WICEDLED_LED_VALUE,               1,      1,      key_led_wicedled_led},
+    {HDLC_WICED101_LED_VALUE,               1,      1,      key_led_wicedled_led},
 };
 
 // Number of Lookup Table Entries
@@ -340,7 +340,7 @@ wiced_bt_gatt_status_t key_led_get_value( uint16_t attr_handle, uint16_t conn_id
                     break;
                 case HDLC_GENERIC_ACCESS_APPEARANCE_VALUE:
                     break;
-                case HDLC_WICEDLED_LED_VALUE:
+                case HDLC_WICED101_LED_VALUE:
                     break;
                 }
             }
@@ -400,7 +400,7 @@ wiced_bt_gatt_status_t key_led_set_value( uint16_t attr_handle, uint16_t conn_id
                 // For example you may need to write the value into NVRAM if it needs to be persistent
                 switch ( attr_handle )
                 {
-                case HDLC_WICEDLED_LED_VALUE:
+                case HDLC_WICED101_LED_VALUE:
                     /* Turn the LED on/off depending on the value written to the GATT database */
                     WICED_BT_TRACE("Output = %d\n",key_led_wicedled_led[0]);
                     wiced_hal_gpio_set_pin_output(WICED_GPIO_PIN_LED_2, key_led_wicedled_led[0]);

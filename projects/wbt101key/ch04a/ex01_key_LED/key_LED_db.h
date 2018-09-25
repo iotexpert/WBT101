@@ -25,11 +25,11 @@
 #define HDLC_GENERIC_ACCESS_APPEARANCE        0x0017
 #define HDLC_GENERIC_ACCESS_APPEARANCE_VALUE  0x0018
 
-// ***** Primary Service 'WicedLED'
-#define HDLS_WICEDLED                         0x0028
+// ***** Primary Service 'Wiced101'
+#define HDLS_WICED101                         0x0028
 // ----- Characteristic 'LED'
-#define HDLC_WICEDLED_LED                     0x0029
-#define HDLC_WICEDLED_LED_VALUE               0x002A
+#define HDLC_WICED101_LED                     0x0029
+#define HDLC_WICED101_LED_VALUE               0x002A
 
 // External Lookup Table Entry
 typedef struct

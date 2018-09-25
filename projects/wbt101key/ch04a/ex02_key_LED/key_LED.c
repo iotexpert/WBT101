@@ -184,7 +184,7 @@ void key_led_app_init(void)
     /* Start Undirected LE Advertisements on device startup.
      * The corresponding parameters are contained in 'wiced_bt_cfg.c' */
     /* TODO: Make sure that this is the desired behavior. */
-    wiced_rtos_init_timer(&blinkTimer,500,blinkTimerHandler,0);
+    wiced_init_timer(&blinkTimer,blinkTimerHandler,0,WICED_MILLI_SECONDS_PERIODIC_TIMER);
     wiced_bt_start_advertisements(BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL);
 }
 
@@ -315,7 +315,7 @@ wiced_bt_dev_status_t key_led_management_callback( wiced_bt_management_evt_t eve
         {
             key_led_advertisement_stopped();
 
-            wiced_rtos_stop_timer(&blinkTimer);
+            wiced_stop_timer(&blinkTimer);
             if(conn_id == 0)
             {
                 connectedLEDState = 0;
@@ -325,7 +325,7 @@ wiced_bt_dev_status_t key_led_management_callback( wiced_bt_management_evt_t eve
         }
         else
         {
-            wiced_rtos_start_timer(&blinkTimer);
+            WICED_BT_TRACE("called timer start %d\r\n",   wiced_start_timer(&blinkTimer,500));
 
         }
         break;
@@ -499,7 +499,7 @@ wiced_bt_gatt_status_t key_led_connect_callback( wiced_bt_gatt_connection_status
         {
             // Device has connected
             WICED_BT_TRACE("Connected : BDA '%B', Connection ID '%d'\n", p_conn_status->bd_addr, p_conn_status->conn_id );
-            wiced_rtos_stop_timer(&blinkTimer);
+            wiced_stop_timer(&blinkTimer);
             connectedLEDState = 1;
             wiced_hal_gpio_set_pin_output(WICED_GPIO_PIN_LED_1, connectedLEDState);
             conn_id = p_conn_status->conn_id;
