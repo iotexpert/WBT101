@@ -4,7 +4,7 @@
  *
  */
 
-/** ex01_scanner.c
+/** ex04_connect_notify.c
  *
  */
 
@@ -29,8 +29,9 @@
 #include "wiced_hal_pspi.h"
 #include "wiced_bt_cfg.h"
 #include "wiced_hal_puart.h"
-
 #include "wiced_memory.h"
+#include "wiced_bt_gatt_util.h"
+
 
 /*******************************************************************
  * Constant Definitions
@@ -47,21 +48,20 @@ extern const wiced_bt_cfg_buf_pool_t wiced_bt_cfg_buf_pools[WICED_BT_CFG_NUM_BUF
 extern uint8_t BT_LOCAL_NAME[];
 // Transport pool for sending RFCOMM data to host
 static wiced_transport_buffer_pool_t* transport_pool = NULL;
-static const uint8_t matchServiceUUID[] = {0xF0 ,0x34 ,0x9B ,0x5F ,0x80 ,0x00 ,0x00 ,0x80 ,0x00 ,0x10 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 };
 
 static uint16_t conn_id=0;
-static uint16_t ledHandle=0x0E;
-static uint16_t cccdHandle=0x12;
+static uint16_t ledHandle=  0x002A;
+static uint16_t cccdHandle= 0x002D;
 
 /*******************************************************************
  * Function Prototypes
  ******************************************************************/
-static void                  ex01_scanner_app_init               ( void );
-static wiced_bt_dev_status_t ex01_scanner_management_callback    ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
-static void                  ex01_scanner_reset_device           ( void );
+static void                  ex04_connect_notify_app_init               ( void );
+static wiced_bt_dev_status_t ex04_connect_notify_management_callback    ( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
+static void                  ex04_connect_notify_reset_device           ( void );
 static uint32_t              hci_control_process_rx_cmd          ( uint8_t* p_data, uint32_t len );
 #ifdef HCI_TRACE_OVER_TRANSPORT
-static void                  ex01_scanner_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
+static void                  ex04_connect_notify_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
 static void newAdvCallback(wiced_bt_ble_scan_results_t *p_scan_result, uint8_t *p_adv_data);
 static void                  rx_cback                          ( void *data );
@@ -124,13 +124,13 @@ void application_start(void)
 #endif
 
     /* Initialize Bluetooth Controller and Host Stack */
-    wiced_bt_stack_init(ex01_scanner_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
+    wiced_bt_stack_init(ex04_connect_notify_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools);
 }
 
 /*
  * This function is executed in the BTM_ENABLED_EVT management callback.
  */
-void ex01_scanner_app_init(void)
+void ex04_connect_notify_app_init(void)
 {
     /* Initialize Application */
     wiced_bt_app_init();
@@ -153,7 +153,7 @@ void ex01_scanner_app_init(void)
 }
 
 /* TODO: This function should be called when the device needs to be reset */
-void ex01_scanner_reset_device( void )
+void ex04_connect_notify_reset_device( void )
 {
     /* TODO: Clear any additional persistent values used by the application from NVRAM */
 
@@ -164,45 +164,24 @@ void ex01_scanner_reset_device( void )
 // This function is called when an advertising packet is received.
 void newAdvCallback(wiced_bt_ble_scan_results_t *p_scan_result, uint8_t *p_adv_data)
 {
+    uint8_t len;
 
-    uint8_t length;
-
-    uint8_t *serviceUUID = wiced_bt_ble_check_advertising_data(p_adv_data,BTM_BLE_ADVERT_TYPE_128SRV_COMPLETE,&length);
-    if(serviceUUID && memcmp(serviceUUID,matchServiceUUID,16) == 0)
+    uint8_t *findName = wiced_bt_ble_check_advertising_data ( p_adv_data, BTM_BLE_ADVERT_TYPE_NAME_COMPLETE, &len);
+    if(len > 0) /* Found a Name in the advertising packet */
     {
-        WICED_BT_TRACE("Host = %B Found Service UUID\r\n ",p_scan_result->remote_bd_addr);
-
-        wiced_bt_ble_scan(BTM_BLE_SCAN_TYPE_NONE,FALSE,newAdvCallback);
-
-        wiced_bt_gatt_le_connect(p_scan_result->remote_bd_addr,p_scan_result->ble_addr_type,BLE_CONN_MODE_HIGH_DUTY,WICED_TRUE);
-    }
-
-
-    #if 0
-    uint8_t *name = wiced_bt_ble_check_advertising_data(p_adv_data,BTM_BLE_ADVERT_TYPE_NAME_COMPLETE,&length);
-    if(name && strncmp(name,"capled",length))
-    {
-        // Uncomment this if you want to print out names that match
-        //WICED_BT_TRACE("Host = %B capled\r\n ",p_scan_result->remote_bd_addr);
-    }
-
-    uint8_t *mfgData = wiced_bt_ble_check_advertising_data(p_adv_data,BTM_BLE_ADVERT_TYPE_MANUFACTURER,&length);
-    if(mfgData)
-    {
-        WICED_BT_TRACE("Host = %B length=%d ",p_scan_result->remote_bd_addr,length);
-        for(int i=0;i<length;i++)
+        if((strncmp(findName,"key_pair",len) == 0) || (strncmp(findName,"key_manu",len) == 0)) /* Found name of pairing example */
         {
-            WICED_BT_TRACE("%02X ",mfgData[i]);
+            wiced_bt_ble_sec_action_type_t *p_ref_data;
+            WICED_BT_TRACE("Connecting to Device Name with BD Address: [%B]\r\n",p_scan_result->remote_bd_addr);
+            wiced_bt_gatt_le_connect(p_scan_result->remote_bd_addr, p_scan_result->ble_addr_type, BLE_CONN_MODE_HIGH_DUTY, WICED_TRUE);
+            wiced_bt_dev_sec_bond(p_scan_result->remote_bd_addr, p_scan_result->ble_addr_type, BT_TRANSPORT_LE, 0, NULL);
+            wiced_bt_ble_scan(BTM_BLE_SCAN_TYPE_NONE, WICED_TRUE, newAdvCallback);
         }
-        WICED_BT_TRACE("\r\n");
     }
-#endif
 }
 
-
-
 /* Bluetooth Management Event Handler */
-wiced_bt_dev_status_t ex01_scanner_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
+wiced_bt_dev_status_t ex04_connect_notify_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
     wiced_bt_dev_status_t status = WICED_BT_SUCCESS;
     wiced_bt_device_address_t bda = { 0 };
@@ -218,7 +197,7 @@ wiced_bt_dev_status_t ex01_scanner_management_callback( wiced_bt_management_evt_
         // There is a virtual HCI interface between upper layers of the stack and
         // the controller portion of the chip with lower layers of the BT stack.
         // Register with the stack to receive all HCI commands, events and data.
-        wiced_bt_dev_register_hci_trace(ex01_scanner_trace_callback);
+        wiced_bt_dev_register_hci_trace(ex04_connect_notify_trace_callback);
 #endif
 
         WICED_BT_TRACE("Bluetooth Enabled (%s)\r\n",
@@ -233,7 +212,7 @@ wiced_bt_dev_status_t ex01_scanner_management_callback( wiced_bt_management_evt_
             WICED_BT_TRACE("Local Bluetooth Address: [%B]\r\n", bda);
 
             /* Perform application-specific initialization */
-            ex01_scanner_app_init();
+            ex04_connect_notify_app_init();
         }
 
 
@@ -272,7 +251,7 @@ wiced_bt_dev_status_t ex01_scanner_management_callback( wiced_bt_management_evt_
         WICED_BT_TRACE("Paired Device Link Request Keys Event\r\n");
         /* Device/app-specific TODO: HANDLE PAIRED DEVICE LINK REQUEST KEY - retrieve from NVRAM, etc */
 #if 0
-        if (ex01_scanner_read_link_keys( &p_event_data->paired_device_link_keys_request ))
+        if (ex04_connect_notify_read_link_keys( &p_event_data->paired_device_link_keys_request ))
         {
             WICED_BT_TRACE("Key Retrieval Success\r\n");
         }
@@ -308,51 +287,42 @@ wiced_bt_dev_status_t ex01_scanner_management_callback( wiced_bt_management_evt_
 // writeLED is a function to send either a 1 or a 0 to the LED Characteristic
 // This function will check and see if there is a connection and we know the handle of the LED
 // It will then setup a write... and then write
-void writeLed(uint8_t val)
+void writeLed(uint8_t ledState)
 {
-    if(conn_id == 0 && ledHandle != 0)
+    if((conn_id == 0) || (ledHandle == 0))
+    {
         return;
+    }
 
+    wiced_bt_gatt_value_t *p_write = ( wiced_bt_gatt_value_t* )wiced_bt_get_buffer( sizeof( wiced_bt_gatt_value_t ) + sizeof(ledState)-1);
 
-    wiced_bt_gatt_value_t *p_write = ( wiced_bt_gatt_value_t* )wiced_bt_get_buffer( sizeof( wiced_bt_gatt_value_t ));
-    if ( p_write )
-        {
-            p_write->handle   = ledHandle;
-            p_write->offset   = 0;
-            p_write->len      = 1;
-            p_write->auth_req = GATT_AUTH_REQ_NONE;
-            p_write->value[0] = val;
-
-            wiced_bt_gatt_status_t status = wiced_bt_gatt_send_write ( conn_id, GATT_WRITE, p_write );
-
-            WICED_BT_TRACE("wiced_bt_gatt_send_write 0x%X\r\n", status);
-
-            wiced_bt_free_buffer( p_write );
-        }
-
-}
-// writeCCCD will write the CCCD to be 1 or 0 based on the input
-// It will first make sure that there is a valid handle and connection.
-void writeCCCD(uint16_t val)
-{
-    if(conn_id == 0 || cccdHandle == 0)
-        return;
-
-    // Notice the +1 because there are two bytes in the CCCD
-    wiced_bt_gatt_value_t *p_write = ( wiced_bt_gatt_value_t* )wiced_bt_get_buffer( sizeof( wiced_bt_gatt_value_t ) + 1 );
     if ( p_write )
     {
-        p_write->handle   = cccdHandle;
+        p_write->handle   = ledHandle;
         p_write->offset   = 0;
-        p_write->len      = 2;
+        p_write->len      = sizeof(ledState);
         p_write->auth_req = GATT_AUTH_REQ_NONE;
-        p_write->value[0] = val & 0xFF;
-        p_write->value[1] = val>>8 & 0xFF;
+        memcpy(p_write->value, &ledState, sizeof(ledState));
 
         wiced_bt_gatt_status_t status = wiced_bt_gatt_send_write ( conn_id, GATT_WRITE, p_write );
+
         WICED_BT_TRACE("wiced_bt_gatt_send_write 0x%X\r\n", status);
+
         wiced_bt_free_buffer( p_write );
     }
+}
+
+// writeCCCD will write the CCCD to be 1 or 0 based on the input
+// It will first make sure that there is a valid handle and connection.
+void writeCCCD(uint16_t cccdVal)
+{
+    if(conn_id == 0 || cccdHandle == 0)
+    {
+        return;
+    }
+
+    wiced_bt_gatt_status_t status = wiced_bt_util_set_gatt_client_config_descriptor(conn_id, cccdHandle, cccdVal);
+    WICED_BT_TRACE("wiced_bt_util_set_gatt_client_config_descriptor 0x%X\r\n", status);
 }
 
 
@@ -452,7 +422,7 @@ uint32_t hci_control_process_rx_cmd( uint8_t* p_data, uint32_t len )
 
 #ifdef HCI_TRACE_OVER_TRANSPORT
 /* Handle Sending of Trace over the Transport */
-void ex01_scanner_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
+void ex04_connect_notify_trace_callback( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data )
 {
     wiced_transport_send_hci_trace( transport_pool, type, length, p_data );
 }

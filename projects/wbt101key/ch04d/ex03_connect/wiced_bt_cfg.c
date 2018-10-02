@@ -18,7 +18,7 @@
 #include "wiced_bt_cfg.h"
 
 /* Null-Terminated Local Device Name */
-uint8_t BT_LOCAL_NAME[] = { 'k','e','y','_','L','E','D','\0' };
+uint8_t BT_LOCAL_NAME[] = { 'e','x','0','3','_','c','o','n','n','e','c','t','\0' };
 const uint16_t BT_LOCAL_NAME_CAPACITY = sizeof(BT_LOCAL_NAME);
 
 
@@ -50,7 +50,7 @@ const wiced_bt_cfg_settings_t wiced_bt_cfg_settings =
         /* Advertisement Scan Configuration */
         .high_duty_scan_interval =          WICED_BT_CFG_DEFAULT_HIGH_DUTY_SCAN_INTERVAL,               /**< High Duty Scan Interval */
         .high_duty_scan_window =            WICED_BT_CFG_DEFAULT_HIGH_DUTY_SCAN_WINDOW,                 /**< High Duty Scan Window */
-        .high_duty_scan_duration =          5,                                                          /**< High Duty Scan Duration in seconds (0 for infinite) */
+        .high_duty_scan_duration =          0,                                                          /**< High Duty Scan Duration in seconds (0 for infinite) */
 
         .low_duty_scan_interval =           WICED_BT_CFG_DEFAULT_LOW_DUTY_SCAN_INTERVAL,                /**< Low Duty Scan Interval */
         .low_duty_scan_window =             WICED_BT_CFG_DEFAULT_LOW_DUTY_SCAN_WINDOW,                  /**< Low Duty Scan Window */
@@ -106,7 +106,7 @@ const wiced_bt_cfg_settings_t wiced_bt_cfg_settings =
     .gatt_cfg = {
         .appearance =                       0x0000,                                                     /**< GATT Appearance */
         .client_max_links =                 1,                                                          /**< Client Config: Maximum number of servers that local client can connect to */
-        .server_max_links =                 1,                                                          /**< Server Config: Maximum number of remote client connections allowed by local server */
+        .server_max_links =                 0,                                                          /**< Server Config: Maximum number of remote client connections allowed by local server */
         .max_attr_len =                     512,                                                        /**< Maximum attribute length; wiced_bt_cfg must have a corresponding buffer pool that can hold this length */
         .max_mtu_size =                     515,                                                        /**< Maximum MTU size for GATT connections, should be between 23 and (max_attr_len + 5) */
     },
@@ -142,7 +142,7 @@ const wiced_bt_cfg_settings_t wiced_bt_cfg_settings =
     /* LE Address Resolution Database Settings */
     .addr_resolution_db_size =              10,                                                         /**< LE Address Resolution Database Size - Effective only for pre-4.2 controller */
     .max_number_of_buffer_pools =           4,                                                          /**< Maximum number of buffer pools in p_btm_cfg_buf_pools and by wiced_create_pool */
-    .rpa_refresh_timeout =                  WICED_BT_CFG_DEFAULT_RANDOM_ADDRESS_NEVER_CHANGE,         /**< Interval of random address refreshing - secs */
+    .rpa_refresh_timeout =                  WICED_BT_CFG_DEFAULT_RANDOM_ADDRESS_CHANGE_TIMEOUT,         /**< Interval of random address refreshing - secs */
 };
 
 /*******************************************************************
