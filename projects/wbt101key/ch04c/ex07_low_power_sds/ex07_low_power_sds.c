@@ -912,6 +912,7 @@ uint32_t low_power_sleep_callback(wiced_sleep_poll_type_t type )
             if(WICED_SLEEP_NOT_ALLOWED != sleep_type)
             {
                 ret = WICED_SLEEP_MAX_TIME_TO_SLEEP;
+                WICED_BT_TRACE( "e" ); //Print e when sleep is entered
             }
             break;
     }
