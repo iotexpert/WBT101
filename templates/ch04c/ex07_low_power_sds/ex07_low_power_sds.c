@@ -86,7 +86,7 @@ static uint32_t               hci_control_process_rx_cmd          ( uint8_t* p_d
 #ifdef HCI_TRACE_OVER_TRANSPORT
 static void                   ex07_low_power_sds_trace_callback         ( wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t* p_data );
 #endif
-void button_cback( void *data, uint8_t port_pin );  // Button ISR to enter bonding mode
+void button_cback( void *data, uint8_t port_pin );
 void rx_cback( void *data );
 uint32_t low_power_sleep_callback(wiced_sleep_poll_type_t type );
 
@@ -705,7 +705,7 @@ wiced_bt_gatt_status_t ex07_low_power_sds_connect_callback( wiced_bt_gatt_connec
             memcpy(hostinfo.bdaddr, p_conn_status->bd_addr, sizeof(BD_ADDR));
 
             /* Update connection parameters */
-            wiced_bt_l2cap_update_ble_conn_params( p_conn_status->bd_addr, 80, 80, 0, 512 );
+            wiced_bt_l2cap_update_ble_conn_params( p_conn_status->bd_addr, 200, 200, 3, 512 );
         }
         else
         {

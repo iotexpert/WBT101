@@ -632,7 +632,7 @@ wiced_bt_gatt_status_t ex01_low_power_connect_callback( wiced_bt_gatt_connection
             memcpy(hostinfo.bdaddr, p_conn_status->bd_addr, sizeof(BD_ADDR));
 
             /* Update connection parameters */
-            wiced_bt_l2cap_update_ble_conn_params( p_conn_status->bd_addr, 80, 80, 0, 512 );
+            wiced_bt_l2cap_update_ble_conn_params( p_conn_status->bd_addr, 200, 200, 3, 512 );
         }
         else
         {
