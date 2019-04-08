@@ -6,6 +6,8 @@
 #include "wiced_hal_puart.h"
 #include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
+#include "GeneratedSource/cycfg.h"
+
 
 /* Convenient defines for thread sleep times */
 #define SLEEP_10MS		(10)

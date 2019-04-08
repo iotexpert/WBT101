@@ -7,6 +7,8 @@
 #include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
 #include "wiced_rtc.h"
+#include "GeneratedSource/cycfg.h"
+
 
 /* Convenient defines for thread sleep times */
 #define SLEEP_10MS		(10)
@@ -81,17 +83,6 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
         if( WICED_BT_SUCCESS == p_event_data->enabled.status )
         {
-			/* The stack is safely up - create a thread to test out peripherals */
-			wiced_thread_t* peripheral_test_thread = wiced_rtos_create_thread();
-
-			wiced_rtos_init_thread(
-					peripheral_test_thread,		// Thread handle
-					7,                			// Priority (7 is low, 3 is high)
-					"App Task",					// Name
-					app_task,					// Function
-					1024,						// Stack space for the app_task function to use
-					NULL );						// Function argument (not used)
-
 			/* Turn on the UART for rx and tx */
 		    wiced_hal_puart_init( );
 		    wiced_hal_puart_flow_off( );
@@ -106,8 +97,19 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 		    wiced_hal_puart_enable_rx();
 
 		    /* TODO: Initialize the RTC */
-			
 
+
+			
+			/* The stack is safely up - create a thread to test out peripherals */
+			wiced_thread_t* peripheral_test_thread = wiced_rtos_create_thread();
+
+			wiced_rtos_init_thread(
+					peripheral_test_thread,		// Thread handle
+					7,                			// Priority (7 is low, 3 is high)
+					"App Task",					// Name
+					app_task,					// Function
+					1024,						// Stack space for the app_task function to use
+					NULL );						// Function argument (not used)
         }
         break;
 
