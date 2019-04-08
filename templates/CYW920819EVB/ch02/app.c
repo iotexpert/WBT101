@@ -6,6 +6,8 @@
 #include "wiced_hal_puart.h"
 #include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
+#include "GeneratedSource/cycfg.h"
+
 
 /* Convenient defines for thread sleep times */
 #define SLEEP_10MS		(10)
@@ -61,6 +63,10 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
         if( WICED_BT_SUCCESS == p_event_data->enabled.status )
         {
+			/* Initialize peripherals before creating threads */
+
+						
+						
 			/* The stack is safely up - create a thread to test out peripherals */
 			wiced_thread_t* peripheral_test_thread = wiced_rtos_create_thread();
 

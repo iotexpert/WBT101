@@ -7,6 +7,8 @@
 #include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
 #include "wiced_hal_i2c.h"
+#include "GeneratedSource/cycfg.h"
+
 
 /* Convenient defines for thread sleep times */
 #define SLEEP_10MS		(10)
@@ -71,6 +73,9 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
         if( WICED_BT_SUCCESS == p_event_data->enabled.status )
         {
+			/* TODO: Initialize I2C and set speed to 400kHz */
+
+			
 			/* The stack is safely up - create a thread to test out peripherals */
 			wiced_thread_t* peripheral_test_thread = wiced_rtos_create_thread();
 
@@ -107,9 +112,6 @@ void app_task( uint32_t arg )
 		int16_t ay;
 		int16_t az;
 	} __attribute__((packed)) accelData;   // I2C read data
-
-	/* TODO: Initialize I2C and set speed to 400kHz */
-
 
 	/* TODO: Write to the configuration register */
 	/*       You need to send 2 bytes - first the register location and then the register value */
