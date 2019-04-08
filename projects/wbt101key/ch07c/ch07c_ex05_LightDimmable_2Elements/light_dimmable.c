@@ -69,6 +69,7 @@
  *    combinations.
  *
  */
+#include "cycfg.h"
 #include "wiced_bt_ble.h"
 #include "wiced_bt_gatt.h"
 #include "wiced_bt_mesh_models.h"

@@ -40,7 +40,7 @@ PLATFORMS_VERSION = 1.0
 
 CONFIG = Debug
 
-CY_EXAMPLE_NAME = ch07c_ex06_LightDimmable_HSL
+CY_EXAMPLE_NAME = key_ch07c_ex06_LightDimmable_HSL
 
 CY_EXAMPLE_DESCRIPTION = Key project for exercise ch07c_ex06_LightDimmable_HSL on the CYBT-213043-MESH kit.
 
