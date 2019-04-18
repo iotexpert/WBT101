@@ -225,7 +225,7 @@ void app_set_advertisement_data( void )
 
     /* Advertisement Element for Name */
     adv_elem[num_elem].advert_type = BTM_BLE_ADVERT_TYPE_NAME_COMPLETE;
-    adv_elem[num_elem].len = strlen( (const char*)app_gap_device_name );
+    adv_elem[num_elem].len = app_gap_device_name_len;
     adv_elem[num_elem].p_data = app_gap_device_name;
     num_elem++;
 
