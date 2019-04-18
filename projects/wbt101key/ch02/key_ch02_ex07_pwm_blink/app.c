@@ -78,7 +78,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 	        /* Configure and start the PWM */
             wiced_hal_aclk_enable( PWM_FREQUENCY, ACLK1, ACLK_FREQ_24_MHZ );
 	        wiced_hal_pwm_start( PWM1, PMU_CLK, PWM_TOGGLE, PWM_INIT, 0 );
-        }
+         }
         break;
 
     default:

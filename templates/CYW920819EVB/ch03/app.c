@@ -78,7 +78,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 			wiced_thread_t* LED_control_thread = wiced_rtos_create_thread();
 			wiced_rtos_init_thread(
 					LED_control_thread,			// Thread handle
-					7,                			// Priority (7 is low, 3 is high)
+					4,                			// Medium Priority 
 					"LED Task",					// Name
 					LED_task,					// Function
 					1024,						// Stack space for the app_task function to use
@@ -100,7 +100,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 void button_cback( void *data, uint8_t port_pin )
 {
    /* Clear the gpio interrupt */
-   wiced_hal_gpio_clear_pin_interrupt_status( WICED_GPIO_PIN_BUTTON_1 );
+   wiced_hal_gpio_clear_pin_interrupt_status( port_pin );
 }
 
 

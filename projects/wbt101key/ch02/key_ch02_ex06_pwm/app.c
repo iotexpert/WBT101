@@ -80,7 +80,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
 			wiced_rtos_init_thread(
 					peripheral_test_thread,		// Thread handle
-					7,                			// Priority (7 is low, 3 is high)
+					4,                			// Medium Priority
 					"App Task",					// Name
 					app_task,					// Function
 					1024,						// Stack space for the app_task function to use

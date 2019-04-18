@@ -79,7 +79,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 			Fast_LED_thread = wiced_rtos_create_thread();
 			wiced_rtos_init_thread(
 					Fast_LED_thread,			// Thread handle
-					7,                			// Priority (7 is low, 3 is high)
+					4,                			// Medium Priority 
 					"Fast LED Task",			// Name
 					Fast_LED_task,				// Function
 					1024,						// Stack space for the app_task function to use
@@ -88,7 +88,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 			Slow_LED_thread = wiced_rtos_create_thread();
 			wiced_rtos_init_thread(
 					Slow_LED_thread,			// Thread handle
-					7,                			// Priority (7 is low, 3 is high)
+					4,                			// Medium Priority 
 					"Slow LED Task",			// Name
 					Slow_LED_task,				// Function
 					1024,						// Stack space for the app_task function to use
