@@ -99,7 +99,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 				wiced_bt_gatt_db_init( gatt_database, gatt_database_len );
 
 				/* Enable/disable pairing */
-				wiced_bt_set_pairable_mode( WICED_FALSE, WICED_FALSE );
+				wiced_bt_set_pairable_mode( WICED_TRUE, WICED_FALSE );
 
 				/* Start the PWM in the LED always off state */
 				wiced_hal_aclk_enable( PWM_FREQUENCY, ACLK1, ACLK_FREQ_24_MHZ );
@@ -120,6 +120,9 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 			break;
 
 		case BTM_PAIRING_IO_CAPABILITIES_BLE_REQUEST_EVT: 		// IO capabilities request
+			p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_SC_MITM_BOND;
+			p_event_data->pairing_io_capabilities_ble_request.init_keys = BTM_LE_KEY_PENC|BTM_LE_KEY_PID;
+			p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_NONE;
 			break;
 
 		case BTM_PAIRING_COMPLETE_EVT: 						// Pairing Complete event
@@ -129,6 +132,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 			break;
 
 		case BTM_SECURITY_REQUEST_EVT: 						// Security access
+			wiced_bt_ble_security_grant( p_event_data->security_request.bd_addr, WICED_BT_SUCCESS );
 			break;
 
 		case BTM_PAIRED_DEVICE_LINK_KEYS_UPDATE_EVT: 			// Save link keys with app
@@ -187,6 +191,8 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
     wiced_bt_gatt_connection_status_t *conn = &p_data->connection_status;
     wiced_bt_gatt_attribute_request_t *attr = &p_data->attribute_request;
 
+    int to_copy;
+
     switch( event )
     {
         case GATT_CONNECTION_STATUS_EVT:					// Remote device initiates connect/disconnect
@@ -208,21 +214,109 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 				/* Restart the advertisements */
 				wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
 			}
+
             break;
 
         case GATT_ATTRIBUTE_REQUEST_EVT:					// Remote device initiates a GATT read/write
-			switch( attr->request_type )
-			{
-				case GATTS_REQ_TYPE_READ:
-					result = app_gatt_get_value( attr->data.handle, conn->conn_id, attr->data.read_req.p_val, *attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
-					break;
+    		switch( attr->request_type )
+    		{
+    			case GATTS_REQ_TYPE_READ:
+			        //WICED_BT_TRACE( "READ DATA HANDLE:%04X\n", attr->data.read_req.handle);
+    				switch(attr->data.read_req.handle)
+    				{
+    					// If the read is for an OTA service handle, pass it to the library
+    					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_CONTROL_POINT:
+    					case HANDLE_OTA_FW_UPGRADE_CONTROL_POINT:
+    					case HANDLE_OTA_FW_UPGRADE_CLIENT_CONFIGURATION_DESCRIPTOR:
+    					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_DATA:
+    					case HANDLE_OTA_FW_UPGRADE_DATA:
+    					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_APP_INFO:
+    					case HANDLE_OTA_FW_UPGRADE_APP_INFO:
+    				        result = wiced_ota_fw_upgrade_read_handler(attr->conn_id, &(attr->data.read_req));
+    						break;
+    				    case HDLC_GAP_DEVICE_NAME_VALUE:
+    				        if (attr->data.read_req.offset >= strlen((const char *)wiced_bt_cfg_settings.device_name))
+    				            return WICED_BT_GATT_INVALID_OFFSET;
 
-				case GATTS_REQ_TYPE_WRITE:
-					result = app_gatt_set_value( attr->data.handle, conn->conn_id, p_data->attribute_request.data.write_req.p_val, p_data->attribute_request.data.write_req.val_len );
-					break;
-            }
+    				        to_copy = strlen((const char *)wiced_bt_cfg_settings.device_name) - attr->data.read_req.offset;
+    				        if (*attr->data.read_req.p_val_len < to_copy)
+    				            to_copy = *attr->data.read_req.p_val_len;
+
+    				        memcpy(attr->data.read_req.p_val, wiced_bt_cfg_settings.device_name + attr->data.read_req.offset, to_copy);
+    				        *attr->data.read_req.p_val_len = to_copy;
+    				        break;
+
+    				    case HDLC_GAP_APPEARANCE_VALUE:
+    				        if (attr->data.read_req.offset >= 2)
+    				            return WICED_BT_GATT_INVALID_OFFSET;
+
+    				        to_copy = 2 - attr->data.read_req.offset;
+    				        if (*attr->data.read_req.p_val_len < to_copy)
+    				            to_copy = *attr->data.read_req.p_val_len;
+
+    				        memcpy(attr->data.read_req.p_val, ((uint8_t*)&wiced_bt_cfg_settings.gatt_cfg.appearance) + attr->data.read_req.offset, to_copy);
+    				        *attr->data.read_req.p_val_len = to_copy;
+    				        break;
+
+    					default:
+    						result = app_gatt_get_value( attr->data.handle, attr->conn_id, attr->data.read_req.p_val,
+    								*attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
+    						break;
+    				}
+    				break;
+
+    			case GATTS_REQ_TYPE_WRITE:
+    			case GATTS_REQ_TYPE_PREP_WRITE:
+			        //WICED_BT_TRACE( "WRITE DATA HANDLE:%04X\n", attr->data.write_req.handle);
+    				switch(attr->data.write_req.handle)
+    				{
+    					// If the write is for an OTA service handle, pass it to the library
+    					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_CONTROL_POINT:
+    					case HANDLE_OTA_FW_UPGRADE_CONTROL_POINT:
+    					case HANDLE_OTA_FW_UPGRADE_CLIENT_CONFIGURATION_DESCRIPTOR:
+    					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_DATA:
+    					case HANDLE_OTA_FW_UPGRADE_DATA:
+    					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_APP_INFO:
+    					case HANDLE_OTA_FW_UPGRADE_APP_INFO:
+    				        // Turn off debug printing during OTA
+    						wiced_set_debug_uart( WICED_ROUTE_DEBUG_NONE);
+    				        result = wiced_ota_fw_upgrade_write_handler(attr->conn_id, &(attr->data.write_req));
+    						break;
+    					default:
+    						// Handle normal (non-OTA) write requests here
+    						result = app_gatt_set_value( attr->data.handle, attr->conn_id, attr->data.write_req.p_val, attr->data.write_req.val_len );
+    						break;
+    				}
+    				break;
+
+    			case GATTS_REQ_TYPE_WRITE_EXEC:
+    					result = WICED_BT_GATT_SUCCESS;
+    					break;
+
+    			case GATTS_REQ_TYPE_MTU:
+    					result = WICED_BT_GATT_SUCCESS;
+    					break;
+
+    			case GATTS_REQ_TYPE_CONF:
+    				switch(attr->data.handle)
+    				{
+    					// If the indication is for an OTA service handle, pass it to the library
+    					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_CONTROL_POINT:
+    					case HANDLE_OTA_FW_UPGRADE_CONTROL_POINT:
+    					case HANDLE_OTA_FW_UPGRADE_CLIENT_CONFIGURATION_DESCRIPTOR:
+    					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_DATA:
+    					case HANDLE_OTA_FW_UPGRADE_DATA:
+    					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_APP_INFO:
+    					case HANDLE_OTA_FW_UPGRADE_APP_INFO:
+    				        result = wiced_ota_fw_upgrade_indication_cfm_handler(attr->conn_id, attr->data.handle);
+    						break;
+    					default:
+    						// Handle normal (non-OTA) indication confirmation requests here
+    						break;
+    				}
+    				break;
+            } // end of switch on attribute request event_type
             break;
-
         default:
             WICED_BT_TRACE( "Unhandled GATT Event: 0x%x (%d)\r\n", event, event );
             break;

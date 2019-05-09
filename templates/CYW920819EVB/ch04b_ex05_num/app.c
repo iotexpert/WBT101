@@ -337,11 +337,11 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 			switch( attr->request_type )
 			{
 				case GATTS_REQ_TYPE_READ:
-					result = app_gatt_get_value( attr->data.handle, conn->conn_id, attr->data.read_req.p_val, *attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
+					result = app_gatt_get_value( attr->data.handle, attr->conn_id, attr->data.read_req.p_val, *attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
 					break;
 
 				case GATTS_REQ_TYPE_WRITE:
-					result = app_gatt_set_value( attr->data.handle, conn->conn_id, p_data->attribute_request.data.write_req.p_val, p_data->attribute_request.data.write_req.val_len );
+					result = app_gatt_set_value( attr->data.handle, attr->conn_id, attr->data.write_req.p_val, attr->data.write_req.val_len );
 					break;
             }
             break;

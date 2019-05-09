@@ -1,4 +1,7 @@
 # This is a file used and owned by the ModusToolbox IDE. Users should not modify this file.
+CY_MAINAPP_SWCOMP_USED= \
+    bt_20819A1-1.0/components/BT-SDK/common/libraries/fw_upgrade_lib
+CY_MIDDLEWARE_SELECTOR_TOUCHED=true
 FEATURE_VALUES=BT_DEVICE_ADDRESS,default UART,AUTO APP_XIP,xip_pi ENABLE_DEBUG,0 
 DEVICE=CYW20819A1KFBG
 #
@@ -39,9 +42,9 @@ PLATFORMS_VERSION = 1.0
 
 CONFIG = Debug
 
-CY_EXAMPLE_NAME = ch04c_ex05_ota
+CY_EXAMPLE_NAME = ch04c_ex06_ota_sec
 
-CY_EXAMPLE_DESCRIPTION = Template project for the OTA exercise on the CYW920819EVB-02 kit.\n\nREMEMBER to set BT_DEVICE_ADDRESS = random.\n\n
+CY_EXAMPLE_DESCRIPTION = Template project for the Secure OTA exercise on the CYW920819EVB-02 kit.\n\nREMEMBER to set BT_DEVICE_ADDRESS = random.\n\n
 
 CY_SHOW_NEW_PROJECT := true
 
@@ -56,7 +59,8 @@ OTA_FW_UPGRADE=1
 
 # NOTE: This variable cannot be renamed or moved to a different file. It is updated by the ModusToolbox
 # middleware editor.
-CY_MAINAPP_SWCOMP_EXT =
+CY_MAINAPP_SWCOMP_EXT= \
+    
 
 CY_APP_SOURCE = ./app.c							\
 				./app_bt_cfg.c				\
