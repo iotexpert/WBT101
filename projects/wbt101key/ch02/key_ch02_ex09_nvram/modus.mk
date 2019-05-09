@@ -41,7 +41,7 @@ CONFIG = Debug
 
 CY_EXAMPLE_NAME = key_ch02_ex09_nvram
 
-CY_EXAMPLE_DESCRIPTION = Key project for exercise ch02_ex09_nvram on the CYW920819EVB-02 or CYBT-213043-MESH kit.
+CY_EXAMPLE_DESCRIPTION = Key project for ch02_ex09_nvram exercise on the CYW920819EVB-02 and CYBT-213043-MESH.
 
 CY_SHOW_NEW_PROJECT := true
 

@@ -50,9 +50,9 @@ BLE_CONFIG_START
                                         <Field>
                                             <FieldProperties>
                                                 <Property id="Name" value="Name"/>
-                                                <Property id="Value" value=""/>
+                                                <Property id="Value" value="key_adv"/>
                                                 <Property id="Format" value="f_utf8s"/>
-                                                <Property id="ByteLength" value="0"/>
+                                                <Property id="ByteLength" value="7"/>
                                             </FieldProperties>
                                         </Field>
                                     </Fields>
