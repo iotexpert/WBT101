@@ -238,30 +238,6 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
     					case HANDLE_OTA_FW_UPGRADE_APP_INFO:
     				        result = wiced_ota_fw_upgrade_read_handler(attr->conn_id, &(attr->data.read_req));
     						break;
-    				    case HDLC_GAP_DEVICE_NAME_VALUE:
-    				        if (attr->data.read_req.offset >= strlen((const char *)wiced_bt_cfg_settings.device_name))
-    				            return WICED_BT_GATT_INVALID_OFFSET;
-
-    				        to_copy = strlen((const char *)wiced_bt_cfg_settings.device_name) - attr->data.read_req.offset;
-    				        if (*attr->data.read_req.p_val_len < to_copy)
-    				            to_copy = *attr->data.read_req.p_val_len;
-
-    				        memcpy(attr->data.read_req.p_val, wiced_bt_cfg_settings.device_name + attr->data.read_req.offset, to_copy);
-    				        *attr->data.read_req.p_val_len = to_copy;
-    				        break;
-
-    				    case HDLC_GAP_APPEARANCE_VALUE:
-    				        if (attr->data.read_req.offset >= 2)
-    				            return WICED_BT_GATT_INVALID_OFFSET;
-
-    				        to_copy = 2 - attr->data.read_req.offset;
-    				        if (*attr->data.read_req.p_val_len < to_copy)
-    				            to_copy = *attr->data.read_req.p_val_len;
-
-    				        memcpy(attr->data.read_req.p_val, ((uint8_t*)&wiced_bt_cfg_settings.gatt_cfg.appearance) + attr->data.read_req.offset, to_copy);
-    				        *attr->data.read_req.p_val_len = to_copy;
-    				        break;
-
     					default:
     						result = app_gatt_get_value( attr->data.handle, attr->conn_id, attr->data.read_req.p_val,
     								*attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
