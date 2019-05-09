@@ -278,8 +278,8 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
     					case HANDLE_OTA_FW_UPGRADE_DATA:
     					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_APP_INFO:
     					case HANDLE_OTA_FW_UPGRADE_APP_INFO:
-    				        // Uncomment this line to turn off debug printing if update frequently fails
-    						//wiced_set_debug_uart( WICED_ROUTE_DEBUG_NONE);
+    				        // Turn off debug printing during OTA
+    						wiced_set_debug_uart( WICED_ROUTE_DEBUG_NONE);
     				        result = wiced_ota_fw_upgrade_write_handler(attr->conn_id, &(attr->data.write_req));
     						break;
     					default:
