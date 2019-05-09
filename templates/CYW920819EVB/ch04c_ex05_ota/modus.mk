@@ -39,9 +39,9 @@ PLATFORMS_VERSION = 1.0
 
 CONFIG = Debug
 
-CY_EXAMPLE_NAME = key_ch04c_ex05_ota
+CY_EXAMPLE_NAME = ch04c_ex05_ota
 
-CY_EXAMPLE_DESCRIPTION = Key project for the ch04b_ex01_ctr exercise on the CYW920819EVB-02 kit.\n\nREMEMBER to set BT_DEVICE_ADDRESS = random.\n\n
+CY_EXAMPLE_DESCRIPTION = Template project for the OTA exercise on the CYW920819EVB-02 kit.\n\nREMEMBER to set BT_DEVICE_ADDRESS = random.\n\n
 
 CY_SHOW_NEW_PROJECT := true
 
@@ -54,19 +54,15 @@ CY_APP_DEFINES += -DWICED_BT_TRACE_ENABLE
 # Generate the OTA bin by default
 OTA_FW_UPGRADE=1
 
-# Include middleware for OTA
-CY_MAINAPP_SWCOMP_USED = \
-  $(CY_WICED_LIB_COMP_BASE)/BT-SDK/common/libraries/fw_upgrade_lib
-
 # NOTE: This variable cannot be renamed or moved to a different file. It is updated by the ModusToolbox
 # middleware editor.
 CY_MAINAPP_SWCOMP_EXT =
 
-CY_APP_SOURCE = ./app.c								\
-				./app_bt_cfg.c						\
-				./app_bt_cfg.h						\
-				./wiced_platform.h					\
-				./design.modus						\
+CY_APP_SOURCE = ./app.c							\
+				./app_bt_cfg.c				\
+				./app_bt_cfg.h				\
+				./wiced_platform.h			\
+				./design.modus				\
 				./GeneratedSource/cycfg_bt.h		\
 
 CY_APP_RESOURCES =
