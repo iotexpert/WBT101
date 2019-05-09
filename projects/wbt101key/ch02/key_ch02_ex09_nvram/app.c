@@ -21,7 +21,6 @@
  ******************************************************************/
 wiced_bt_dev_status_t  app_bt_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
 
-void app_task(uint32_t );
 void button_cback( void *data, uint8_t port_pin );
 
 
@@ -34,8 +33,12 @@ void button_cback( void *data, uint8_t port_pin );
 ********************************************************************************/
 void application_start(void)
 {
-	wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
-	WICED_BT_TRACE( "**** CYW20819 App Start **** \n\r" );
+#if ((defined WICED_BT_TRACE_ENABLE) || (defined HCI_TRACE_OVER_TRANSPORT))
+    /* Select Debug UART setting to see debug traces on the appropriate port */
+    wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
+#endif
+
+    WICED_BT_TRACE( "**** CYW20819 App Start **** \r\n" );
 
     /* Initialize Stack and Register Management Callback */
     wiced_bt_stack_init( app_bt_management_callback, &wiced_bt_cfg_settings, wiced_bt_cfg_buf_pools );
@@ -68,20 +71,11 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
         if( WICED_BT_SUCCESS == p_event_data->enabled.status )
         {
-			/* Configure the button to trigger an interrupt when pressed */
-			wiced_hal_gpio_configure_pin(WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE ), GPIO_PIN_OUTPUT_HIGH );
-			wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, button_cback, 0 );
+        	/* Configure the button to trigger an interrupt when pressed */
+        	wiced_hal_gpio_configure_pin(WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_FALLING_EDGE ), GPIO_PIN_OUTPUT_HIGH );
+        	wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, button_cback, 0 );
 			
-			/* The stack is safely up - create a thread to test out peripherals */
-			wiced_thread_t* peripheral_test_thread = wiced_rtos_create_thread();
-
-			wiced_rtos_init_thread(
-					peripheral_test_thread,		// Thread handle
-					4,                			// Medium Priority
-					"App Task",					// Name
-					app_task,					// Function
-					1024,						// Stack space for the app_task function to use
-					NULL );						// Function argument (not used)
+			WICED_BT_TRACE( "Press the button to update NVRAM\r\n" );
         }
         break;
 
@@ -90,35 +84,6 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
     }
 
     return status;
-}
-
-
-/*******************************************************************************
-* Function Name: void app_task(uint32_t)
-********************************************************************************/
-void app_task( uint32_t arg )
-{
-    uint8_t         count = 0;
-    wiced_result_t  status;
-    uint16_t        numbytes;
-
-    numbytes = wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(count), &count, &status );
-    if( WICED_ERROR == status )
-    {
-    	WICED_BT_TRACE( "NVRAM not set up (freshly programmed device) writing 0 to VSID_START.\n\r" );
-    	count = 0;
-    	numbytes = wiced_hal_write_nvram( WICED_NVRAM_VSID_START, sizeof(count), &count, &status );
-    }
-
-    while( 1 )
-    {
-    	/* Read and print the count of button presses */
-        numbytes = wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(count), &count, &status );
-        WICED_BT_TRACE( "Value read from NVRAM: %d\tBytes Read: %d\t\tStatus: 0x%02x\n\r", count, numbytes, status );
-
-        /* Send the thread to sleep for a specified number of milliseconds */
-        wiced_rtos_delay_milliseconds( SLEEP_1000MS, ALLOW_THREAD_TO_SLEEP );
-    }
 }
 
 
@@ -132,11 +97,12 @@ void button_cback( void *data, uint8_t port_pin )
     uint16_t        numbytes;
 
     /* Read the count of button presses, increment it, and store back to NVRAM */
-    wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(count), &count, &status );
+    numbytes = wiced_hal_read_nvram( WICED_NVRAM_VSID_START, sizeof(count), &count, &status );
+    WICED_BT_TRACE( "Data read from NVRAM:\t%d\tBytes Read:\t%d\tStatus: 0x%02x\n\r", count, numbytes, status );
 
     count++;
 
+	/* Write the count of button presses back to NVRAM */
     numbytes = wiced_hal_write_nvram( WICED_NVRAM_VSID_START, sizeof(count), &count, &status );
-    WICED_BT_TRACE( "Value written to NVRAM: %d\tBytes Written: %d\tStatus: 0x%02x\n\r", count, numbytes, status );
+    WICED_BT_TRACE( "Data written to NVRAM:\t%d\tBytes Written:\t%d\tStatus: 0x%02x\n\r", count, numbytes, status );
 }
-

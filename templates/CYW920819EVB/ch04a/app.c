@@ -43,7 +43,6 @@ wiced_bt_gatt_status_t			app_gatt_get_value( uint16_t attr_handle, uint16_t conn
 wiced_bt_gatt_status_t			app_gatt_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len );
 
 void							app_set_advertisement_data( void );
-void							app_generate_random_bda( wiced_bt_device_address_t bda );
 
 
 /*******************************************************************
@@ -81,74 +80,68 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
     switch( event )
     {
-    case BTM_ENABLED_EVT:								// Bluetooth Controller and Host Stack Enabled
-        if( WICED_BT_SUCCESS == p_event_data->enabled.status )
-        {
-        	WICED_BT_TRACE( "Bluetooth Enabled\r\n" );
+		case BTM_ENABLED_EVT:								// Bluetooth Controller and Host Stack Enabled
+			if( WICED_BT_SUCCESS == p_event_data->enabled.status )
+			{
+				WICED_BT_TRACE( "Bluetooth Enabled\r\n" );
 
-        	/* Set and check the Bluetooth Device Address (static random) */
-            wiced_bt_device_address_t bda;
+				/* Use Application Settings dialog to set BT_DEVICE_ADDRESS = random */
+				wiced_bt_device_address_t bda;
+				wiced_bt_dev_read_local_addr( bda );
+				WICED_BT_TRACE( "Local Bluetooth Device Address: [%B]\r\n", bda );
 
-            app_generate_random_bda( bda );
+				/* TODO: Configure the GATT database and advertise for connections */
 
-            wiced_bt_set_local_bdaddr( bda, BLE_ADDR_PUBLIC );
-        	wiced_bt_dev_read_local_addr( bda );
-            WICED_BT_TRACE( "Local Bluetooth Device Address: [%B]\r\n", bda );
+				
 
-        	/* TODO: Configure the GATT database and advertise for connections */
+				/* TODO: Enable/disable pairing */
 
-			
+				
+				
+				/* Create the packet and begin advertising */
+				app_set_advertisement_data();
+				wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
+			}
+			else
+			{
+				WICED_BT_TRACE( "Bluetooth Disabled\r\n" );
+			}
+			break;
 
-            /* TODO: Enable/disable pairing */
+		case BTM_PAIRING_IO_CAPABILITIES_BLE_REQUEST_EVT: 		// IO capabilities request
+			break;
 
-			
-			
-        	/* Create the packet and begin advertising */
-            app_set_advertisement_data();
-            wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
-        }
-        else
-        {
-        	WICED_BT_TRACE( "Bluetooth Disabled\r\n" );
-        }
-        break;
+		case BTM_PAIRING_COMPLETE_EVT: 						// Pairing Complete event
+			break;
 
-    case BTM_PAIRING_IO_CAPABILITIES_BLE_REQUEST_EVT: 		// IO capabilities request
-         break;
+		case BTM_ENCRYPTION_STATUS_EVT: 						// Encryption Status Event
+			break;
 
-     case BTM_PAIRING_COMPLETE_EVT: 						// Pairing Complete event
-         break;
+		case BTM_SECURITY_REQUEST_EVT: 						// Security access
+			break;
 
-     case BTM_ENCRYPTION_STATUS_EVT: 						// Encryption Status Event
-         break;
+		case BTM_PAIRED_DEVICE_LINK_KEYS_UPDATE_EVT: 			// Save link keys with app
+			break;
 
-     case BTM_SECURITY_REQUEST_EVT: 						// Security access
-         break;
+		case BTM_PAIRED_DEVICE_LINK_KEYS_REQUEST_EVT: 		// Retrieval saved link keys
+			break;
 
-     case BTM_PAIRED_DEVICE_LINK_KEYS_UPDATE_EVT: 			// Save link keys with app
-         break;
+		case BTM_LOCAL_IDENTITY_KEYS_UPDATE_EVT: 				// Save keys to NVRAM
+			break;
 
-      case BTM_PAIRED_DEVICE_LINK_KEYS_REQUEST_EVT: 		// Retrieval saved link keys
-         break;
+		case  BTM_LOCAL_IDENTITY_KEYS_REQUEST_EVT: 			// Read keys from NVRAM
+			break;
 
-     case BTM_LOCAL_IDENTITY_KEYS_UPDATE_EVT: 				// Save keys to NVRAM
-         break;
+		case BTM_BLE_SCAN_STATE_CHANGED_EVT: 					// Scan State Change
+			break;
 
-     case  BTM_LOCAL_IDENTITY_KEYS_REQUEST_EVT: 			// Read keys from NVRAM
-         break;
+		case BTM_BLE_ADVERT_STATE_CHANGED_EVT:					// Advertising State Change
+			WICED_BT_TRACE( "Advertising state = %d\r\n", p_event_data->ble_advert_state_changed );
+			break;
 
-     case BTM_BLE_SCAN_STATE_CHANGED_EVT: 					// Scan State Change
-         break;
-
-     case BTM_BLE_ADVERT_STATE_CHANGED_EVT:					// Advertising State Change
-	     	WICED_BT_TRACE( "Advertising state = %d\r\n", p_event_data->ble_advert_state_changed );
-
-    	 break;
-
-
-    default:
-        WICED_BT_TRACE( "Unhandled Bluetooth Management Event: 0x%x (%d)\n", event, event );
-        break;
+		default:
+			WICED_BT_TRACE( "Unhandled Bluetooth Management Event: 0x%x (%d)\n", event, event );
+			break;
     }
 
     return status;
@@ -192,11 +185,11 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 			switch( attr->request_type )
 			{
 				case GATTS_REQ_TYPE_READ:
-					app_gatt_get_value( attr->data.handle, conn->conn_id, attr->data.read_req.p_val, *attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
+					result = app_gatt_get_value( attr->data.handle, conn->conn_id, attr->data.read_req.p_val, *attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
 					break;
 
 				case GATTS_REQ_TYPE_WRITE:
-					app_gatt_set_value( attr->data.handle, conn->conn_id, p_data->attribute_request.data.write_req.p_val, p_data->attribute_request.data.write_req.val_len );
+					result = app_gatt_set_value( attr->data.handle, conn->conn_id, p_data->attribute_request.data.write_req.p_val, p_data->attribute_request.data.write_req.val_len );
 					break;
             }
             break;
@@ -233,24 +226,6 @@ void app_set_advertisement_data( void )
 
     /* Set Raw Advertisement Data */
     wiced_bt_ble_set_raw_advertisement_data( num_elem, adv_elem );
-}
-
-
-/*******************************************************************************
-* Function Name: void app_generate_random_bda( wiced_bt_device_address_t bda )
-********************************************************************************/
-void app_generate_random_bda( wiced_bt_device_address_t bda )
-{
-	/* Wait 2s for device to warm up and correctly generate random numbers */
-	wiced_rtos_delay_milliseconds( 2000, ALLOW_THREAD_TO_SLEEP );
-
-	/* Valid static random address should have 2 most significant bits set to 1 */
-	bda[0] = 0xc0 | wiced_hal_rand_gen_num();
-	bda[1] = wiced_hal_rand_gen_num();
-	bda[2] = wiced_hal_rand_gen_num();
-	bda[3] = wiced_hal_rand_gen_num();
-	bda[4] = wiced_hal_rand_gen_num();
-	bda[5] = wiced_hal_rand_gen_num();
 }
 
 
