@@ -53,14 +53,14 @@ const uint8_t gatt_database[] =
             /* Descriptor: Characteristic User Description */
             CHAR_DESCRIPTOR_UUID16 (HDLD_MODUS_COUNTER_CHAR_USER_DESCRIPTION, __UUID_DESCRIPTOR_CHARACTERISTIC_USER_DESCRIPTION, LEGATTDB_PERM_READABLE),
 
-    /* Primary Service: OTA_FW_UPGRADE_SERVICE */
-    PRIMARY_SERVICE_UUID128 (HDLS_OTA_FW_UPGRADE_SERVICE, __UUID_SERVICE_OTA_FW_UPGRADE_SERVICE),
+    /* Primary Service: OTA_FW_UPGRADE */
+    PRIMARY_SERVICE_UUID128 (HDLS_OTA_FW_UPGRADE, __UUID_SERVICE_OTA_FW_UPGRADE),
         /* Characteristic: CONTROL_POINT */
-        CHARACTERISTIC_UUID128_WRITABLE (HDLC_OTA_FW_UPGRADE_SERVICE_CONTROL_POINT, HDLC_OTA_FW_UPGRADE_SERVICE_CONTROL_POINT_VALUE, __UUID_CHARACTERISTIC_OTA_FW_UPGRADE_SERVICE_CONTROL_POINT, LEGATTDB_CHAR_PROP_WRITE | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_INDICATE, LEGATTDB_PERM_VARIABLE_LENGTH | LEGATTDB_PERM_WRITE_REQ),
+        CHARACTERISTIC_UUID128_WRITABLE (HDLC_OTA_FW_UPGRADE_CONTROL_POINT, HDLC_OTA_FW_UPGRADE_CONTROL_POINT_VALUE, __UUID_CHARACTERISTIC_OTA_FW_UPGRADE_CONTROL_POINT, LEGATTDB_CHAR_PROP_WRITE | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_INDICATE, LEGATTDB_PERM_VARIABLE_LENGTH | LEGATTDB_PERM_WRITE_REQ),
             /* Descriptor: Client Characteristic Configuration */
-            CHAR_DESCRIPTOR_UUID16_WRITABLE (HDLD_OTA_FW_UPGRADE_SERVICE_CONTROL_POINT_CLIENT_CHAR_CONFIG, __UUID_DESCRIPTOR_CLIENT_CHARACTERISTIC_CONFIGURATION, LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITE_REQ),
+            CHAR_DESCRIPTOR_UUID16_WRITABLE (HDLD_OTA_FW_UPGRADE_CONTROL_POINT_CLIENT_CHAR_CONFIG, __UUID_DESCRIPTOR_CLIENT_CHARACTERISTIC_CONFIGURATION, LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITE_REQ),
         /* Characteristic: DATA */
-        CHARACTERISTIC_UUID128_WRITABLE (HDLC_OTA_FW_UPGRADE_SERVICE_DATA, HDLC_OTA_FW_UPGRADE_SERVICE_DATA_VALUE, __UUID_CHARACTERISTIC_OTA_FW_UPGRADE_SERVICE_DATA, LEGATTDB_CHAR_PROP_WRITE, LEGATTDB_PERM_VARIABLE_LENGTH | LEGATTDB_PERM_WRITE_REQ),
+        CHARACTERISTIC_UUID128_WRITABLE (HDLC_OTA_FW_UPGRADE_DATA, HDLC_OTA_FW_UPGRADE_DATA_VALUE, __UUID_CHARACTERISTIC_OTA_FW_UPGRADE_DATA, LEGATTDB_CHAR_PROP_WRITE, LEGATTDB_PERM_VARIABLE_LENGTH | LEGATTDB_PERM_WRITE_REQ),
 };
 
 /* Length of the GATT database */
@@ -70,14 +70,14 @@ const uint16_t gatt_database_len = sizeof(gatt_database);
  * GATT Initial Value Arrays
  ************************************************************************************/
  
-uint8_t app_gap_device_name[]                                         = {'k', 'e', 'y', '_', 'o', 't', 'a', };
-uint8_t app_gap_appearance[]                                          = {0x00u, 0x00u, };
-uint8_t app_modus_counter[]                                           = {0x00u, };
-uint8_t app_modus_counter_client_char_config[]                        = {0x00u, 0x00u, };
-uint8_t app_modus_counter_char_user_description[]                     = {'C', 'o', 'u', 'n', 't', ' ', 'o', 'f', ' ', 'b', 'u', 't', 't', 'o', 'n', ' ', 'p', 'r', 'e', 's', 's', 'e', 's', };
-uint8_t app_ota_fw_upgrade_service_control_point[]                    = {};
-uint8_t app_ota_fw_upgrade_service_control_point_client_char_config[] = {0x00u, 0x00u, };
-uint8_t app_ota_fw_upgrade_service_data[]                             = {};
+uint8_t app_gap_device_name[]                                 = {'k', 'e', 'y', '_', 'o', 't', 'a', };
+uint8_t app_gap_appearance[]                                  = {0x00u, 0x00u, };
+uint8_t app_modus_counter[]                                   = {0x00u, };
+uint8_t app_modus_counter_client_char_config[]                = {0x00u, 0x00u, };
+uint8_t app_modus_counter_char_user_description[]             = {'C', 'o', 'u', 'n', 't', ' ', 'o', 'f', ' ', 'b', 'u', 't', 't', 'o', 'n', ' ', 'p', 'r', 'e', 's', 's', 'e', 's', };
+uint8_t app_ota_fw_upgrade_control_point[]                    = {};
+uint8_t app_ota_fw_upgrade_control_point_client_char_config[] = {0x00u, 0x00u, };
+uint8_t app_ota_fw_upgrade_data[]                             = {};
  
  /************************************************************************************
  * GATT Lookup Table
@@ -85,15 +85,15 @@ uint8_t app_ota_fw_upgrade_service_data[]                             = {};
  
 gatt_db_lookup_table_t app_gatt_db_ext_attr_tbl[] =
 {
-    /* { attribute handle,                                          maxlen, curlen, attribute data } */
-    { HDLC_GAP_DEVICE_NAME_VALUE,                                   7,      7,      app_gap_device_name },
-    { HDLC_GAP_APPEARANCE_VALUE,                                    2,      2,      app_gap_appearance },
-    { HDLC_MODUS_COUNTER_VALUE,                                     1,      1,      app_modus_counter },
-    { HDLD_MODUS_COUNTER_CLIENT_CHAR_CONFIG,                        2,      2,      app_modus_counter_client_char_config },
-    { HDLD_MODUS_COUNTER_CHAR_USER_DESCRIPTION,                     23,     23,     app_modus_counter_char_user_description },
-    { HDLC_OTA_FW_UPGRADE_SERVICE_CONTROL_POINT_VALUE,              0,      0,      app_ota_fw_upgrade_service_control_point },
-    { HDLD_OTA_FW_UPGRADE_SERVICE_CONTROL_POINT_CLIENT_CHAR_CONFIG, 2,      2,      app_ota_fw_upgrade_service_control_point_client_char_config },
-    { HDLC_OTA_FW_UPGRADE_SERVICE_DATA_VALUE,                       0,      0,      app_ota_fw_upgrade_service_data },
+    /* { attribute handle,                                  maxlen, curlen, attribute data } */
+    { HDLC_GAP_DEVICE_NAME_VALUE,                           7,      7,      app_gap_device_name },
+    { HDLC_GAP_APPEARANCE_VALUE,                            2,      2,      app_gap_appearance },
+    { HDLC_MODUS_COUNTER_VALUE,                             1,      1,      app_modus_counter },
+    { HDLD_MODUS_COUNTER_CLIENT_CHAR_CONFIG,                2,      2,      app_modus_counter_client_char_config },
+    { HDLD_MODUS_COUNTER_CHAR_USER_DESCRIPTION,             23,     23,     app_modus_counter_char_user_description },
+    { HDLC_OTA_FW_UPGRADE_CONTROL_POINT_VALUE,              0,      0,      app_ota_fw_upgrade_control_point },
+    { HDLD_OTA_FW_UPGRADE_CONTROL_POINT_CLIENT_CHAR_CONFIG, 2,      2,      app_ota_fw_upgrade_control_point_client_char_config },
+    { HDLC_OTA_FW_UPGRADE_DATA_VALUE,                       0,      0,      app_ota_fw_upgrade_data },
 };
 
 /* Number of Lookup Table entries */
@@ -105,7 +105,7 @@ const uint16_t app_gap_appearance_len = (sizeof(app_gap_appearance));
 const uint16_t app_modus_counter_len = (sizeof(app_modus_counter));
 const uint16_t app_modus_counter_client_char_config_len = (sizeof(app_modus_counter_client_char_config));
 const uint16_t app_modus_counter_char_user_description_len = (sizeof(app_modus_counter_char_user_description));
-const uint16_t app_ota_fw_upgrade_service_control_point_len = (sizeof(app_ota_fw_upgrade_service_control_point));
-const uint16_t app_ota_fw_upgrade_service_control_point_client_char_config_len = (sizeof(app_ota_fw_upgrade_service_control_point_client_char_config));
-const uint16_t app_ota_fw_upgrade_service_data_len = (sizeof(app_ota_fw_upgrade_service_data));
+const uint16_t app_ota_fw_upgrade_control_point_len = (sizeof(app_ota_fw_upgrade_control_point));
+const uint16_t app_ota_fw_upgrade_control_point_client_char_config_len = (sizeof(app_ota_fw_upgrade_control_point_client_char_config));
+const uint16_t app_ota_fw_upgrade_data_len = (sizeof(app_ota_fw_upgrade_data));
 

@@ -50,9 +50,9 @@ BLE_CONFIG_START
                                         <Field>
                                             <FieldProperties>
                                                 <Property id="Name" value="Name"/>
-                                                <Property id="Value" value="change_me"/>
+                                                <Property id="Value" value="key_otas"/>
                                                 <Property id="Format" value="f_utf8s"/>
-                                                <Property id="ByteLength" value="9"/>
+                                                <Property id="ByteLength" value="8"/>
                                             </FieldProperties>
                                         </Field>
                                     </Fields>
@@ -271,8 +271,8 @@ BLE_CONFIG_START
                         <Service type="org.bluetooth.service.custom">
                             <ServiceProperties>
                                 <Property id="EntityID" value="{7837480d-cd67-4c52-b342-a6760d0f1996}"/>
-                                <Property id="DisplayName" value="OTA_FW_UPGRADE_SERVICE"/>
-                                <Property id="UUID" value="AE5D1E47-5C13-43A0-8635-82AD38A1381F"/>
+                                <Property id="DisplayName" value="OTA_FW_UPGRADE"/>
+                                <Property id="UUID" value="C7261110-F425-447A-A1BD-9D7246768BD8"/>
                                 <Property id="ServiceDeclaration" value="Primary"/>
                             </ServiceProperties>
                             <Characteristics>
