@@ -271,7 +271,7 @@ BLE_CONFIG_START
                         <Service type="org.bluetooth.service.custom">
                             <ServiceProperties>
                                 <Property id="EntityID" value="{7837480d-cd67-4c52-b342-a6760d0f1996}"/>
-                                <Property id="DisplayName" value="OTA_FW_UPGRADE_SERVICE"/>
+                                <Property id="DisplayName" value="OTA_FW_UPGRADE"/>
                                 <Property id="UUID" value="AE5D1E47-5C13-43A0-8635-82AD38A1381F"/>
                                 <Property id="ServiceDeclaration" value="Primary"/>
                             </ServiceProperties>
