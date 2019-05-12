@@ -50,8 +50,8 @@
 static wiced_bt_dev_status_t	app_bt_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
 static wiced_bt_gatt_status_t	app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_data );
 
-wiced_bt_gatt_status_t			app_gatt_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len );
-wiced_bt_gatt_status_t			app_gatt_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len );
+wiced_bt_gatt_status_t			app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_attr );
+wiced_bt_gatt_status_t			app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_attr );
 
 void							app_set_advertisement_data( void );
 
@@ -195,6 +195,12 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 	    	if( WICED_FALSE == bonded )
 	    	{
 	    		wiced_bt_ble_security_grant( p_event_data->security_request.bd_addr, WICED_BT_SUCCESS );
+	    		status = WICED_BT_SUCCESS;
+	    	}
+	    	else
+	    	{
+	    		WICED_BT_TRACE("Security Request Denied - not in bonding mode\n");
+	    		status = WICED_BT_FAILED_ON_SECURITY;
 	    	}
 			break;
 
@@ -289,26 +295,26 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 {
     wiced_bt_gatt_status_t result = WICED_SUCCESS;
 
-    wiced_bt_gatt_connection_status_t *conn = &p_data->connection_status;
-    wiced_bt_gatt_attribute_request_t *attr = &p_data->attribute_request;
+    wiced_bt_gatt_connection_status_t *p_conn = &p_data->connection_status;
+    wiced_bt_gatt_attribute_request_t *p_attr = &p_data->attribute_request;
 
     switch( event )
     {
         case GATT_CONNECTION_STATUS_EVT:					// Remote device initiates connect/disconnect
-            if( p_data->connection_status.connected )
+            if( p_conn->connected )
 			{
-				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Connect BDA %B, Connection ID %d\r\n",conn->bd_addr, conn->conn_id );
+				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Connect BDA %B, Connection ID %d\r\n",p_conn->bd_addr, p_conn->conn_id );
 				
 				/* Handle the connection */
-				connection_id = conn->conn_id;
+				connection_id = p_conn->conn_id;
 
 				// Save the remote bd_addr into hostinfo because, at this point, we know that is good data
-	            memcpy( hostinfo.remote_addr, conn->bd_addr, sizeof( BD_ADDR ) );
+	            memcpy( hostinfo.remote_addr, p_conn->bd_addr, sizeof( BD_ADDR ) );
 			}
 			else
 			{
 				// Device has disconnected
-				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Disconnect BDA %B, Connection ID %d, Reason=%d\r\n", conn->bd_addr, conn->conn_id, conn->reason );
+				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Disconnect BDA %B, Connection ID %d, Reason=%d\r\n", p_conn->bd_addr, p_conn->conn_id, p_conn->reason );
 				
 				/* Handle the disconnection */
 				connection_id = 0;
@@ -324,14 +330,14 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
             break;
 
         case GATT_ATTRIBUTE_REQUEST_EVT:					// Remote device initiates a GATT read/write
-			switch( attr->request_type )
+			switch( p_attr->request_type )
 			{
 				case GATTS_REQ_TYPE_READ:
-					result = app_gatt_get_value( attr->data.handle, attr->conn_id, attr->data.read_req.p_val, *attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
+					result = app_gatt_get_value( p_attr );
 					break;
 
 				case GATTS_REQ_TYPE_WRITE:
-					result = app_gatt_set_value( attr->data.handle, attr->conn_id, attr->data.write_req.p_val, attr->data.write_req.val_len );
+					result = app_gatt_set_value( p_attr );
 					break;
             }
             break;
@@ -372,15 +378,15 @@ void app_set_advertisement_data( void )
 
 
 /*******************************************************************************
-* Function Name: wiced_bt_gatt_status_t app_gatt_get_value(
-*					uint16_t attr_handle,
-*					uint16_t conn_id,
-*					uint8_t *p_val,
-*					uint16_t max_len,
-*					uint16_t *p_len )
+* Function Name: app_gatt_get_value(
+* 					wiced_bt_gatt_attribute_request_t *p_attr )
 ********************************************************************************/
-wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
+wiced_bt_gatt_status_t app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_attr )
 {
+	uint16_t attr_handle = 	p_attr->data.handle;
+	uint8_t  *p_val = 		p_attr->data.read_req.p_val;
+	uint16_t *p_len = 		p_attr->data.read_req.p_val_len;
+
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
@@ -393,7 +399,7 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
             // Detected a matching handle in external lookup table
             isHandleInTable = WICED_TRUE;
             // Detected a matching handle in the external lookup table
-            if (app_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
+            if (app_gatt_db_ext_attr_tbl[i].cur_len <= *p_len)
             {
                 // Value fits within the supplied buffer; copy over the value
                 *p_len = app_gatt_db_ext_attr_tbl[i].cur_len;
@@ -436,14 +442,15 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
 }
 
 /*******************************************************************************
-* Function Name: wiced_bt_gatt_status_t app_gatt_set_value(
-*					uint16_t attr_handle,
-*					uint16_t conn_id,
-*					uint8_t *p_val,
-*					uint16_t len )
+* Function Name: app_gatt_set_value(
+*					wiced_bt_gatt_attribute_request_t *p_attr )
 ********************************************************************************/
-wiced_bt_gatt_status_t app_gatt_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
+wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_attr )
 {
+	uint16_t attr_handle = 	p_attr->data.handle;
+	uint8_t  *p_val = 		p_attr->data.write_req.p_val;
+	uint16_t len = 			p_attr->data.write_req.val_len;
+
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bool_t validLen = WICED_FALSE;
@@ -568,10 +575,8 @@ void rx_cback( void *data )
 		wiced_bt_dev_remove_device_from_address_resolution_db ( &keys );
 
 		/* Remove bonding information from NVRAM */
-		memset( &hostinfo, 0, sizeof(hostinfo));
-		memset( &keys, 0, sizeof(wiced_bt_device_link_keys_t));
-		wiced_hal_write_nvram( VSID_HOSTINFO, sizeof(hostinfo), (uint8_t*)&hostinfo, &result );
-		wiced_hal_write_nvram ( VSID_REMOTE_KEY, sizeof( wiced_bt_device_link_keys_t ), (uint8_t*)&keys, &result );
+		wiced_hal_delete_nvram(VSID_HOSTINFO, &result);
+		wiced_hal_delete_nvram(VSID_REMOTE_KEY, &result);
     }
 }
 
