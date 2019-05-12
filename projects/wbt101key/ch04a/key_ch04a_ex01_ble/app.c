@@ -10,11 +10,10 @@
 #include "GeneratedSource/cycfg.h"
 #include "GeneratedSource/cycfg_gatt_db.h"
 
-
 /*******************************************************************
  * Macros to assist development of the exercises
  ******************************************************************/
-
+ 
 /* Convenient defines for thread sleep times */
 #define SLEEP_10MS		(10)
 #define SLEEP_100MS		(100)
@@ -40,8 +39,8 @@
 static wiced_bt_dev_status_t	app_bt_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
 static wiced_bt_gatt_status_t	app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_data );
 
-wiced_bt_gatt_status_t			app_gatt_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len );
-wiced_bt_gatt_status_t			app_gatt_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len );
+wiced_bt_gatt_status_t			app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_attr );
+wiced_bt_gatt_status_t			app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_attr );
 
 void							app_set_advertisement_data( void );
 
@@ -91,13 +90,14 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 				wiced_bt_dev_read_local_addr( bda );
 				WICED_BT_TRACE( "Local Bluetooth Device Address: [%B]\r\n", bda );
 
-				/* TODO: Configure the GATT database and advertise for connections */
+				/* Configure the GATT database and advertise for connections */
 				wiced_bt_gatt_register( app_gatt_callback );
 				wiced_bt_gatt_db_init( gatt_database, gatt_database_len );
 
-				/* TODO: Enable/disable pairing */
+				/* Disable pairing */
 				wiced_bt_set_pairable_mode( WICED_FALSE, WICED_FALSE );
 
+				
 				/* Create the packet and begin advertising */
 				app_set_advertisement_data();
 				wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
@@ -157,22 +157,22 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 {
     wiced_bt_gatt_status_t result = WICED_SUCCESS;
 
-    wiced_bt_gatt_connection_status_t *conn = &p_data->connection_status;
-    wiced_bt_gatt_attribute_request_t *attr = &p_data->attribute_request;
+    wiced_bt_gatt_connection_status_t *p_conn = &p_data->connection_status;
+    wiced_bt_gatt_attribute_request_t *p_attr = &p_data->attribute_request;
 
     switch( event )
     {
         case GATT_CONNECTION_STATUS_EVT:					// Remote device initiates connect/disconnect
-            if( p_data->connection_status.connected )
+            if( p_conn->connected )
 			{
-				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Connect BDA %B, Connection ID %d\r\n",conn->bd_addr, conn->conn_id );
+				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Connect BDA %B, Connection ID %d\r\n",p_conn->bd_addr, p_conn->conn_id );
 				
 				/* TODO: Handle the connection */
 			}
 			else
 			{
 				// Device has disconnected
-				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Disconnect BDA %B, Connection ID %d, Reason=%d\r\n", conn->bd_addr, conn->conn_id, conn->reason );
+				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Disconnect BDA %B, Connection ID %d, Reason=%d\r\n", p_conn->bd_addr, p_conn->conn_id, p_conn->reason );
 				
 				/* TODO: Handle the disconnection */
 
@@ -182,14 +182,14 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
             break;
 
         case GATT_ATTRIBUTE_REQUEST_EVT:					// Remote device initiates a GATT read/write
-			switch( attr->request_type )
+			switch( p_attr->request_type )
 			{
 				case GATTS_REQ_TYPE_READ:
-					result = app_gatt_get_value( attr->data.handle, attr->conn_id, attr->data.read_req.p_val, *attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
+					result = app_gatt_get_value( p_attr );
 					break;
 
 				case GATTS_REQ_TYPE_WRITE:
-					result = app_gatt_set_value( attr->data.handle, attr->conn_id, attr->data.write_req.p_val, attr->data.write_req.val_len );
+					result = app_gatt_set_value( p_attr );
 					break;
             }
             break;
@@ -201,6 +201,7 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 
     return result;
 }
+
 
 
 /*******************************************************************************
@@ -230,16 +231,16 @@ void app_set_advertisement_data( void )
 
 
 /*******************************************************************************
-* Function Name: wiced_bt_gatt_status_t app_gatt_get_value(
-*					uint16_t attr_handle,
-*					uint16_t conn_id,
-*					uint8_t *p_val,
-*					uint16_t max_len,
-*					uint16_t *p_len )
+* Function Name: app_gatt_get_value(
+* 					wiced_bt_gatt_attribute_request_t *p_attr )
 ********************************************************************************/
-wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
+wiced_bt_gatt_status_t app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_attr )
 {
-    int i = 0;
+	uint16_t attr_handle = 	p_attr->data.handle;
+	uint8_t  *p_val = 		p_attr->data.read_req.p_val;
+	uint16_t *p_len = 		p_attr->data.read_req.p_val_len;
+
+	int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
@@ -251,7 +252,7 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
             // Detected a matching handle in external lookup table
             isHandleInTable = WICED_TRUE;
             // Detected a matching handle in the external lookup table
-            if (app_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
+            if (app_gatt_db_ext_attr_tbl[i].cur_len <= *p_len)
             {
                 // Value fits within the supplied buffer; copy over the value
                 *p_len = app_gatt_db_ext_attr_tbl[i].cur_len;
@@ -261,9 +262,10 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
                 // TODO: Add code for any action required when this attribute is read
                 switch ( attr_handle )
                 {
-                	case HDLC_MODUSLED_LED_VALUE:
-                		WICED_BT_TRACE( "LED is %s\r\n", app_modusled_led[0] ? "ON" : "OFF" );
-                		break;
+					case HDLC_MODUSLED_LED_VALUE:
+						WICED_BT_TRACE( "LED is %s\r\n", app_modusled_led[0] ? "ON" : "OFF" );
+						break;
+
                 }
             }
             else
@@ -294,16 +296,18 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
     return res;
 }
 
+
 /*******************************************************************************
-* Function Name: wiced_bt_gatt_status_t app_gatt_set_value(
-*					uint16_t attr_handle,
-*					uint16_t conn_id,
-*					uint8_t *p_val,
-*					uint16_t len )
+* Function Name: app_gatt_set_value(
+*					wiced_bt_gatt_attribute_request_t *p_attr )
 ********************************************************************************/
-wiced_bt_gatt_status_t app_gatt_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
+wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_attr )
 {
-    int i = 0;
+	uint16_t attr_handle = 	p_attr->data.handle;
+	uint8_t  *p_val = 		p_attr->data.write_req.p_val;
+	uint16_t len = 			p_attr->data.write_req.val_len;
+
+	int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bool_t validLen = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
@@ -328,10 +332,10 @@ wiced_bt_gatt_status_t app_gatt_set_value( uint16_t attr_handle, uint16_t conn_i
                 // For example you may need to write the value into NVRAM if it needs to be persistent
                 switch ( attr_handle )
                 {
-                	case HDLC_MODUSLED_LED_VALUE:
-                		wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_2, app_modusled_led[0] == 0 );
-                		WICED_BT_TRACE( "Turn the LED %s\r\n", app_modusled_led[0] ? "ON" : "OFF" );
-                		break;
+					case HDLC_MODUSLED_LED_VALUE:
+						wiced_hal_gpio_set_pin_output( WICED_GPIO_PIN_LED_2, app_modusled_led[0] == 0 );
+						WICED_BT_TRACE( "Turn the LED %s\r\n", app_modusled_led[0] ? "ON" : "OFF" );
+						break;
                 }
             }
             else
@@ -361,4 +365,3 @@ wiced_bt_gatt_status_t app_gatt_set_value( uint16_t attr_handle, uint16_t conn_i
 
     return res;
 }
-

@@ -42,8 +42,8 @@
 static wiced_bt_dev_status_t	app_bt_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
 static wiced_bt_gatt_status_t	app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_data );
 
-wiced_bt_gatt_status_t			app_gatt_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len );
-wiced_bt_gatt_status_t			app_gatt_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len );
+wiced_bt_gatt_status_t			app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_attr );
+wiced_bt_gatt_status_t			app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_attr );
 
 void							app_set_advertisement_data( void );
 
@@ -188,25 +188,25 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 {
     wiced_bt_gatt_status_t result = WICED_SUCCESS;
 
-    wiced_bt_gatt_connection_status_t *conn = &p_data->connection_status;
-    wiced_bt_gatt_attribute_request_t *attr = &p_data->attribute_request;
+    wiced_bt_gatt_connection_status_t *p_conn = &p_data->connection_status;
+    wiced_bt_gatt_attribute_request_t *p_attr = &p_data->attribute_request;
 
     int to_copy;
 
     switch( event )
     {
         case GATT_CONNECTION_STATUS_EVT:					// Remote device initiates connect/disconnect
-            if( p_data->connection_status.connected )
+            if( p_conn->connected )
 			{
-				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Connect BDA %B, Connection ID %d\r\n",conn->bd_addr, conn->conn_id );
+				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Connect BDA %B, Connection ID %d\r\n",p_conn->bd_addr, p_conn->conn_id );
 				
 				/* Handle the connection */
-				connection_id = conn->conn_id;
+				connection_id = p_conn->conn_id;
 			}
 			else
 			{
 				// Device has disconnected
-				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Disconnect BDA %B, Connection ID %d, Reason=%d\r\n", conn->bd_addr, conn->conn_id, conn->reason );
+				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Disconnect BDA %B, Connection ID %d, Reason=%d\r\n", p_conn->bd_addr, p_conn->conn_id, p_conn->reason );
 				
 				/* Handle the disconnection */
 				connection_id = 0;
@@ -218,11 +218,11 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
             break;
 
         case GATT_ATTRIBUTE_REQUEST_EVT:					// Remote device initiates a GATT read/write
-    		switch( attr->request_type )
+    		switch( p_attr->request_type )
     		{
     			case GATTS_REQ_TYPE_READ:
-			        //WICED_BT_TRACE( "READ DATA HANDLE:%04X\n", attr->data.read_req.handle);
-    				switch(attr->data.read_req.handle)
+			        //WICED_BT_TRACE( "READ DATA HANDLE:%04X\n", p_attr->data.read_req.handle);
+    				switch(p_attr->data.read_req.handle)
     				{
     					// If the read is for an OTA service handle, pass it to the library
     					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_CONTROL_POINT:
@@ -232,19 +232,18 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
     					case HANDLE_OTA_FW_UPGRADE_DATA:
     					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_APP_INFO:
     					case HANDLE_OTA_FW_UPGRADE_APP_INFO:
-    				        result = wiced_ota_fw_upgrade_read_handler(attr->conn_id, &(attr->data.read_req));
+    				        result = wiced_ota_fw_upgrade_read_handler(p_attr->conn_id, &(p_attr->data.read_req));
     						break;
     					default:
-    						result = app_gatt_get_value( attr->data.handle, attr->conn_id, attr->data.read_req.p_val,
-    								*attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
+    						result = app_gatt_get_value( p_attr );
     						break;
     				}
     				break;
 
     			case GATTS_REQ_TYPE_WRITE:
     			case GATTS_REQ_TYPE_PREP_WRITE:
-			        //WICED_BT_TRACE( "WRITE DATA HANDLE:%04X\n", attr->data.write_req.handle);
-    				switch(attr->data.write_req.handle)
+			        //WICED_BT_TRACE( "WRITE DATA HANDLE:%04X\n", p_attr->data.write_req.handle);
+    				switch(p_attr->data.write_req.handle)
     				{
     					// If the write is for an OTA service handle, pass it to the library
     					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_CONTROL_POINT:
@@ -256,11 +255,11 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
     					case HANDLE_OTA_FW_UPGRADE_APP_INFO:
     				        // Turn off debug printing during OTA
     						wiced_set_debug_uart( WICED_ROUTE_DEBUG_NONE);
-    				        result = wiced_ota_fw_upgrade_write_handler(attr->conn_id, &(attr->data.write_req));
+    				        result = wiced_ota_fw_upgrade_write_handler(p_attr->conn_id, &(p_attr->data.write_req));
     						break;
     					default:
     						// Handle normal (non-OTA) write requests here
-    						result = app_gatt_set_value( attr->data.handle, attr->conn_id, attr->data.write_req.p_val, attr->data.write_req.val_len );
+    						result = app_gatt_set_value( p_attr );
     						break;
     				}
     				break;
@@ -274,7 +273,7 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
     					break;
 
     			case GATTS_REQ_TYPE_CONF:
-    				switch(attr->data.handle)
+    				switch(p_attr->data.handle)
     				{
     					// If the indication is for an OTA service handle, pass it to the library
     					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_CONTROL_POINT:
@@ -284,7 +283,7 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
     					case HANDLE_OTA_FW_UPGRADE_DATA:
     					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_APP_INFO:
     					case HANDLE_OTA_FW_UPGRADE_APP_INFO:
-    				        result = wiced_ota_fw_upgrade_indication_cfm_handler(attr->conn_id, attr->data.handle);
+    				        result = wiced_ota_fw_upgrade_indication_cfm_handler(p_attr->conn_id, p_attr->data.handle);
     						break;
     					default:
     						// Handle normal (non-OTA) indication confirmation requests here
@@ -329,15 +328,15 @@ void app_set_advertisement_data( void )
 
 
 /*******************************************************************************
-* Function Name: wiced_bt_gatt_status_t app_gatt_get_value(
-*					uint16_t attr_handle,
-*					uint16_t conn_id,
-*					uint8_t *p_val,
-*					uint16_t max_len,
-*					uint16_t *p_len )
+* Function Name: app_gatt_get_value(
+* 					wiced_bt_gatt_attribute_request_t *p_attr )
 ********************************************************************************/
-wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
+wiced_bt_gatt_status_t app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_attr )
 {
+	uint16_t attr_handle = 	p_attr->data.handle;
+	uint8_t  *p_val = 		p_attr->data.read_req.p_val;
+	uint16_t *p_len = 		p_attr->data.read_req.p_val_len;
+
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
@@ -350,7 +349,7 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
             // Detected a matching handle in external lookup table
             isHandleInTable = WICED_TRUE;
             // Detected a matching handle in the external lookup table
-            if (app_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
+            if (app_gatt_db_ext_attr_tbl[i].cur_len <= *p_len)
             {
                 // Value fits within the supplied buffer; copy over the value
                 *p_len = app_gatt_db_ext_attr_tbl[i].cur_len;
@@ -393,14 +392,15 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
 }
 
 /*******************************************************************************
-* Function Name: wiced_bt_gatt_status_t app_gatt_set_value(
-*					uint16_t attr_handle,
-*					uint16_t conn_id,
-*					uint8_t *p_val,
-*					uint16_t len )
+* Function Name: app_gatt_set_value(
+*					wiced_bt_gatt_attribute_request_t *p_attr )
 ********************************************************************************/
-wiced_bt_gatt_status_t app_gatt_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
+wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_attr )
 {
+	uint16_t attr_handle = 	p_attr->data.handle;
+	uint8_t  *p_val = 		p_attr->data.write_req.p_val;
+	uint16_t len = 			p_attr->data.write_req.val_len;
+
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bool_t validLen = WICED_FALSE;
