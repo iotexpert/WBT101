@@ -21,7 +21,10 @@
 /* Allocate the multi-advertising instance numbers */
 #define BEACON_EDDYSTONE_URL		1
 #define BEACON_EDDYSTONE_TLM		2
+#define BEACON_EDDYSTONE_UID		3
 
+/* This one byte will insert .com at the end of a URL in a URL frame. */
+#define DOT_COM 0x07
 
 /*******************************************************************
  * Function Prototypes
@@ -126,8 +129,10 @@ void app_set_advertisement_data( void )
 {
 	uint8_t packet_len;
 
+    uint8_t url[] = {'c', 'y', 'p', 'r', 'e', 's', 's', DOT_COM, 0x00}; /* Name for cypress.com with null termination for the string added */
+
     /* Set up a URL packet with max power, and implicit "http://www." prefix */
-    wiced_bt_eddystone_set_data_for_url( adv_parameters.adv_tx_power, EDDYSTONE_URL_SCHEME_0, (uint8_t*)"cypress.com", url_packet, &packet_len );
+    wiced_bt_eddystone_set_data_for_url( adv_parameters.adv_tx_power, EDDYSTONE_URL_SCHEME_0, url, url_packet, &packet_len );
     wiced_set_multi_advertisement_data( url_packet, packet_len, BEACON_EDDYSTONE_URL );
     wiced_set_multi_advertisement_params( BEACON_EDDYSTONE_URL, &adv_parameters );
     wiced_start_multi_advertisements( MULTI_ADVERT_START, BEACON_EDDYSTONE_URL );

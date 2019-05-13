@@ -19,6 +19,7 @@
 /* Defines for the Eddystone service */
 #define EDDY_UUID_LSB   EDDYSTONE_UUID16 & 0xFF
 #define EDDY_UUID_MSB   EDDYSTONE_UUID16 >> 8
+#define DOT_COM         0x07
 #define TX_PWR          0xF0
 
 
@@ -115,7 +116,8 @@ void app_set_advertisement_data( void )
 		EDDYSTONE_FRAME_TYPE_URL,
 		TX_PWR,
 		EDDYSTONE_URL_SCHEME_0,
-		'c', 'y', 'p', 'r', 'e', 's', 's', '.', 'c', 'o', 'm'
+		'c', 'y', 'p', 'r', 'e', 's', 's',
+        DOT_COM
     };
 
     /* Advertisement Element for Flags */
