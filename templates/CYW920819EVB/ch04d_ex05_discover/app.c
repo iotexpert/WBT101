@@ -243,7 +243,7 @@ void myScanCallback( wiced_bt_ble_scan_results_t *p_scan_result, uint8_t *p_adv_
 
 	p_name = wiced_bt_ble_check_advertising_data( p_adv_data, BTM_BLE_ADVERT_TYPE_NAME_COMPLETE, &len );
 
-	if( p_name && ( len > 0 ) && (memcmp( "key_peri", p_name, len ) == 0) )
+	if( p_name && ( len == strlen("key_peri") ) && (memcmp( "key_peri", p_name, len ) == 0) )
 	{
 		memcpy( dev_name, p_name, len);
 		dev_name[len] = 0x00;	/* Null terminate the string */
