@@ -7,12 +7,11 @@
 #include "wiced_bt_stack.h"
 #include "wiced_rtos.h"
 
-#include "wiced_transport.h"
-#include "hci_control_api.h"
-
 #include "GeneratedSource/cycfg.h"
 #include "GeneratedSource/cycfg_gatt_db.h"
 
+#include "wiced_transport.h"
+#include "hci_control_api.h"
 
 /*******************************************************************
  * Macros to assist development of the exercises
@@ -36,14 +35,15 @@
 #define PWM_ALWAYS_ON	(PWM_INIT)
 #define PWM_ALWAYS_OFF	(PWM_MAX)
 
+
 /*******************************************************************
  * Function Prototypes
  ******************************************************************/
 static wiced_bt_dev_status_t	app_bt_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data );
 static wiced_bt_gatt_status_t	app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_gatt_event_data_t *p_data );
 
-wiced_bt_gatt_status_t			app_gatt_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len );
-wiced_bt_gatt_status_t			app_gatt_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len );
+wiced_bt_gatt_status_t			app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_attr );
+wiced_bt_gatt_status_t			app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_attr );
 
 void							app_set_advertisement_data( void );
 
@@ -93,8 +93,8 @@ void application_start( void )
 	    wiced_transport_init( &transport_cfg );
 
 	    /* Initialize Transport Buffer Pool */
-	    transport_pool = wiced_transport_create_buffer_pool ( TRANS_UART_BUFFER_SIZE, TRANS_UART_BUFFER_COUNT );
-
+	    transport_pool = wiced_transport_create_buffer_pool ( TRANS_UART_BUFFER_SIZE,
+	     TRANS_UART_BUFFER_COUNT );
 
 	#if ((defined WICED_BT_TRACE_ENABLE) || (defined HCI_TRACE_OVER_TRANSPORT))
         /* Select Debug UART setting to see debug traces on the appropriate port */
@@ -118,7 +118,7 @@ void application_start( void )
 wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
     wiced_result_t status = WICED_BT_SUCCESS;
-    wiced_bt_ble_advert_mode_t *p_adv_mode = NULL;
+    uint8_t temp;
 
     switch( event )
     {
@@ -142,6 +142,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
 				/* TODO: Enable/disable pairing */
 
+				
 				
 				/* Create the packet and begin advertising */
 				app_set_advertisement_data();
@@ -182,10 +183,15 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
 		case BTM_BLE_ADVERT_STATE_CHANGED_EVT:					// Advertising State Change
 			WICED_BT_TRACE( "Advertising state = %d\r\n", p_event_data->ble_advert_state_changed );
-			/* Send HCI status message with 1 for advertising started and 0 for advertising stopped */
-			p_adv_mode = &p_event_data->ble_advert_state_changed;
-			uint8_t temp_val= (*p_adv_mode>0)?1:0;
-			wiced_transport_send_data(HCI_CONTROL_LE_COMMAND_ADVERTISE, &temp_val, 1);
+			if( p_event_data->ble_advert_state_changed == 0) /* Advertising stopped */
+			{
+				temp = 0;
+			}
+			else /* Advertising started */
+			{
+				 temp = 1;
+			}
+			wiced_transport_send_data(HCI_CONTROL_LE_COMMAND_ADVERTISE, &temp, 1 );
 			break;
 
 		default:
@@ -206,22 +212,22 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 {
     wiced_bt_gatt_status_t result = WICED_SUCCESS;
 
-    wiced_bt_gatt_connection_status_t *conn = &p_data->connection_status;
-    wiced_bt_gatt_attribute_request_t *attr = &p_data->attribute_request;
+    wiced_bt_gatt_connection_status_t *p_conn = &p_data->connection_status;
+    wiced_bt_gatt_attribute_request_t *p_attr = &p_data->attribute_request;
 
     switch( event )
     {
         case GATT_CONNECTION_STATUS_EVT:					// Remote device initiates connect/disconnect
-            if( p_data->connection_status.connected )
+            if( p_conn->connected )
 			{
-				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Connect BDA %B, Connection ID %d\r\n",conn->bd_addr, conn->conn_id );
+				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Connect BDA %B, Connection ID %d\r\n",p_conn->bd_addr, p_conn->conn_id );
 				
 				/* TODO: Handle the connection */
 			}
 			else
 			{
 				// Device has disconnected
-				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Disconnect BDA %B, Connection ID %d, Reason=%d\r\n", conn->bd_addr, conn->conn_id, conn->reason );
+				WICED_BT_TRACE( "GATT_CONNECTION_STATUS_EVT: Disconnect BDA %B, Connection ID %d, Reason=%d\r\n", p_conn->bd_addr, p_conn->conn_id, p_conn->reason );
 				
 				/* TODO: Handle the disconnection */
 
@@ -231,14 +237,14 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
             break;
 
         case GATT_ATTRIBUTE_REQUEST_EVT:					// Remote device initiates a GATT read/write
-			switch( attr->request_type )
+			switch( p_attr->request_type )
 			{
 				case GATTS_REQ_TYPE_READ:
-					result = app_gatt_get_value( attr->data.handle, attr->conn_id, attr->data.read_req.p_val, *attr->data.read_req.p_val_len, attr->data.read_req.p_val_len );
+					result = app_gatt_get_value( p_attr );
 					break;
 
 				case GATTS_REQ_TYPE_WRITE:
-					result = app_gatt_set_value( attr->data.handle, attr->conn_id, attr->data.write_req.p_val, attr->data.write_req.val_len );
+					result = app_gatt_set_value( p_attr );
 					break;
             }
             break;
@@ -285,15 +291,15 @@ void app_set_advertisement_data( void )
 
 
 /*******************************************************************************
-* Function Name: wiced_bt_gatt_status_t app_gatt_get_value(
-*					uint16_t attr_handle,
-*					uint16_t conn_id,
-*					uint8_t *p_val,
-*					uint16_t max_len,
-*					uint16_t *p_len )
+* Function Name: app_gatt_get_value(
+* 					wiced_bt_gatt_attribute_request_t *p_attr )
 ********************************************************************************/
-wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
+wiced_bt_gatt_status_t app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_attr )
 {
+	uint16_t attr_handle = 	p_attr->data.handle;
+	uint8_t  *p_val = 		p_attr->data.read_req.p_val;
+	uint16_t *p_len = 		p_attr->data.read_req.p_val_len;
+
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
@@ -306,7 +312,7 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
             // Detected a matching handle in external lookup table
             isHandleInTable = WICED_TRUE;
             // Detected a matching handle in the external lookup table
-            if (app_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
+            if (app_gatt_db_ext_attr_tbl[i].cur_len <= *p_len)
             {
                 // Value fits within the supplied buffer; copy over the value
                 *p_len = app_gatt_db_ext_attr_tbl[i].cur_len;
@@ -347,14 +353,15 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
 }
 
 /*******************************************************************************
-* Function Name: wiced_bt_gatt_status_t app_gatt_set_value(
-*					uint16_t attr_handle,
-*					uint16_t conn_id,
-*					uint8_t *p_val,
-*					uint16_t len )
+* Function Name: app_gatt_set_value(
+*					wiced_bt_gatt_attribute_request_t *p_attr )
 ********************************************************************************/
-wiced_bt_gatt_status_t app_gatt_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
+wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_attr )
 {
+	uint16_t attr_handle = 	p_attr->data.handle;
+	uint8_t  *p_val = 		p_attr->data.write_req.p_val;
+	uint16_t len = 			p_attr->data.write_req.val_len;
+
     int i = 0;
     wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bool_t validLen = WICED_FALSE;
@@ -444,23 +451,24 @@ uint32_t hci_control_process_rx_cmd( uint8_t* p_data, uint32_t len )
 
         // TODO: Process received HCI Command based on its Opcode
         // (see 'hci_control_api.h' for additional details)
-        switch ( opcode )
+        switch (opcode)
         {
-			case HCI_CONTROL_LE_COMMAND_ADVERTISE:
-				if(p_payload_data[0] == 0)
-				{
-					wiced_bt_start_advertisements(BTM_BLE_ADVERT_OFF, 0, NULL);
-				}
-				else
-				{
-					wiced_bt_start_advertisements(BTM_BLE_ADVERT_NONCONN_HIGH, 0, NULL);;
-				}
-				break;
-			default:
-				// HCI Control Group was not handled
-				cmd_status = HCI_CONTROL_STATUS_UNKNOWN_GROUP;
-				wiced_transport_send_data(HCI_CONTROL_EVENT_COMMAND_STATUS, &cmd_status, sizeof(cmd_status));
-				break;
+        case HCI_CONTROL_LE_COMMAND_ADVERTISE:
+        	if(p_payload_data[0]== 0)
+        	{
+        		wiced_bt_start_advertisements( BTM_BLE_ADVERT_OFF, 0, NULL );
+        	}
+        	else
+        	{
+        		wiced_bt_start_advertisements( BTM_BLE_ADVERT_NONCONN_HIGH, 0, NULL );
+        	}
+        	break;
+        default:
+            // HCI Control Group was not handled
+            cmd_status = HCI_CONTROL_STATUS_UNKNOWN_GROUP;
+            wiced_transport_send_data(HCI_CONTROL_EVENT_COMMAND_STATUS, &cmd_status,
+sizeof(cmd_status));
+            break;
         }
     }
 

@@ -23,6 +23,8 @@
 #define BEACON_EDDYSTONE_TLM		2
 #define BEACON_EDDYSTONE_UID		3
 
+/* This one byte will insert .com at the end of a URL in a URL frame. */
+#define DOT_COM 0x07
 
 /*******************************************************************
  * Function Prototypes
@@ -47,7 +49,7 @@ uint8_t uid_packet[WICED_BT_BEACON_ADV_DATA_MAX];	// UID advertising packet
 wiced_bt_ble_multi_adv_params_t adv_parameters =
 {
     .adv_int_min = BTM_BLE_ADVERT_INTERVAL_MIN,
-    .adv_int_max = 100,			// WBT101 - not using BTM_BLE_ADVERT_INTERVAL_MAX due to impatience
+    .adv_int_max = 100,
     .adv_type = MULTI_ADVERT_NONCONNECTABLE_EVENT,
     .channel_map = BTM_BLE_ADVERT_CHNL_37 | BTM_BLE_ADVERT_CHNL_38 | BTM_BLE_ADVERT_CHNL_39,
     .adv_filter_policy = BTM_BLE_ADVERT_FILTER_WHITELIST_CONNECTION_REQ_WHITELIST_SCAN_REQ,
@@ -129,26 +131,30 @@ void app_set_advertisement_data( void )
 {
 	uint8_t packet_len;
 
-    uint8_t uid_namespace[] = { 0xFE, 0xED, 0xBE, 0xEF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-    uint8_t uid_instance[] = { 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC };
+    uint8_t url[] = {'c', 'y', 'p', 'r', 'e', 's', 's', DOT_COM, 0x00}; /* Name for cypress.com with null termination for the string added */
+	uint8_t uid_namespace[] = { 0xFE, 0xED, 0xBE, 0xEF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	uint8_t uid_instance[] = { 0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC };
 
     /* Set up a URL packet with max power, and implicit "http://www." prefix */
-    wiced_bt_eddystone_set_data_for_url( adv_parameters.adv_tx_power, EDDYSTONE_URL_SCHEME_0, (uint8_t*)"cypress.com", url_packet, &packet_len );
+    wiced_bt_eddystone_set_data_for_url( adv_parameters.adv_tx_power, EDDYSTONE_URL_SCHEME_0, url, url_packet, &packet_len );
     wiced_set_multi_advertisement_data( url_packet, packet_len, BEACON_EDDYSTONE_URL );
     wiced_set_multi_advertisement_params( BEACON_EDDYSTONE_URL, &adv_parameters );
     wiced_start_multi_advertisements( MULTI_ADVERT_START, BEACON_EDDYSTONE_URL );
 
     /* Set up a TLM packet with the number of seconds and battery voltage, temperature, advert count = 0 */
-    wiced_bt_eddystone_set_data_for_tlm_unencrypted( 0, 0, 0, 0, tlm_packet, &packet_len);
+    wiced_bt_eddystone_set_data_for_tlm_unencrypted( 0, 0, 0, 0, tlm_packet, &packet_len );
     wiced_set_multi_advertisement_data( tlm_packet, packet_len, BEACON_EDDYSTONE_TLM );
     wiced_set_multi_advertisement_params( BEACON_EDDYSTONE_TLM, &adv_parameters );
     wiced_start_multi_advertisements( MULTI_ADVERT_START, BEACON_EDDYSTONE_TLM );
 
+
 	/* Set up a UID packet with ranging_data = 0, and the uid_namespace and uid_instance values declared above */
-    wiced_bt_eddystone_set_data_for_uid( 0, uid_namespace, uid_instance, uid_packet, &packet_len);
+    wiced_bt_eddystone_set_data_for_uid( 0, uid_namespace, uid_instance, uid_packet, &packet_len );
     wiced_set_multi_advertisement_data( uid_packet, packet_len, BEACON_EDDYSTONE_UID );
     wiced_set_multi_advertisement_params( BEACON_EDDYSTONE_UID, &adv_parameters );
     wiced_start_multi_advertisements( MULTI_ADVERT_START, BEACON_EDDYSTONE_UID );
+
+
 }
 
 
@@ -164,6 +170,7 @@ void timer_cback( uint32_t data )
 	tenths++;
 
 	/* Reuse two lines of code from app_set_advertisement_data() to re-generate the packet and re-set the advertising data */
-    wiced_bt_eddystone_set_data_for_tlm_unencrypted( 0, 0, 0, SWAP_ENDIAN_32(tenths), tlm_packet, &packet_len);
-    wiced_set_multi_advertisement_data( tlm_packet, packet_len, BEACON_EDDYSTONE_TLM );
+	wiced_bt_eddystone_set_data_for_tlm_unencrypted( 0, 0, 0, SWAP_ENDIAN_32(tenths), tlm_packet, &packet_len );
+	wiced_set_multi_advertisement_data( tlm_packet, packet_len, BEACON_EDDYSTONE_TLM );
+
 }

@@ -46,7 +46,6 @@ wiced_bt_gatt_status_t			app_gatt_get_value( wiced_bt_gatt_attribute_request_t *
 wiced_bt_gatt_status_t			app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_attr );
 
 void							app_set_advertisement_data( void );
-void							app_set_scan_response_data( void );
 
 void							button_cback( void *data, uint8_t port_pin );
 
@@ -112,7 +111,6 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
 				/* Create the advertising and scan response packets and begin advertising */
 				app_set_advertisement_data();
-				app_set_scan_response_data();
 
 				wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
 			}
@@ -266,24 +264,6 @@ void app_set_advertisement_data( void )
 
     /* Set Raw Advertisement Data */
     wiced_bt_ble_set_raw_advertisement_data( num_elem, adv_elem );
-}
-
-
-/*******************************************************************************
-* Function Name: void app_generate_random_bda( wiced_bt_device_address_t bda )
-********************************************************************************/
-void app_generate_random_bda( wiced_bt_device_address_t bda )
-{
-	/* Wait 2s for device to warm up and correctly generate random numbers */
-	wiced_rtos_delay_milliseconds( 2000, ALLOW_THREAD_TO_SLEEP );
-
-	/* Valid static random address should have 2 most significant bits set to 1 */
-	bda[0] = 0xC0 | wiced_hal_rand_gen_num();
-	bda[1] = wiced_hal_rand_gen_num();
-	bda[2] = wiced_hal_rand_gen_num();
-	bda[3] = wiced_hal_rand_gen_num();
-	bda[4] = wiced_hal_rand_gen_num();
-	bda[5] = wiced_hal_rand_gen_num();
 }
 
 

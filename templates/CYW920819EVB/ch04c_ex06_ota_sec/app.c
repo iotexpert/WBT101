@@ -218,7 +218,7 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 				/* Restart the advertisements */
 				wiced_bt_start_advertisements( BTM_BLE_ADVERT_UNDIRECTED_HIGH, 0, NULL );
 			}
-            wiced_ota_fw_upgrade_connection_status_event(conn);
+            wiced_ota_fw_upgrade_connection_status_event(p_conn);
             break;
 
         case GATT_ATTRIBUTE_REQUEST_EVT:					// Remote device initiates a GATT read/write
@@ -277,7 +277,7 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
     					break;
 
     			case GATTS_REQ_TYPE_CONF:
-    				switch(attr->data.handle)
+    				switch(p_attr->data.handle)
     				{
     					// If the indication is for an OTA service handle, pass it to the library
     					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_CONTROL_POINT:
@@ -287,7 +287,7 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
     					case HANDLE_OTA_FW_UPGRADE_DATA:
     					case HANDLE_OTA_FW_UPGRADE_CHARACTERISTIC_APP_INFO:
     					case HANDLE_OTA_FW_UPGRADE_APP_INFO:
-    				        result = wiced_ota_fw_upgrade_indication_cfm_handler(attr->conn_id, attr->data.handle);
+    				        result = wiced_ota_fw_upgrade_indication_cfm_handler(p_attr->conn_id, p_attr->data.handle);
     						break;
     					default:
     						// Handle normal (non-OTA) indication confirmation requests here

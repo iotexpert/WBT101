@@ -1,6 +1,6 @@
 # This is a file used and owned by the ModusToolbox IDE. Users should not modify this file.
 OSNS=
-FEATURE_VALUES=BT_DEVICE_ADDRESS,random UART,AUTO APP_XIP,xip_pi ENABLE_DEBUG,0 
+FEATURE_VALUES=BT_DEVICE_ADDRESS,default UART,AUTO APP_XIP,xip_pi ENABLE_DEBUG,0 
 DEVICE=CYW20819A1KFBG
 #
 # Copyright 2019, Cypress Semiconductor Corporation or a subsidiary of
