@@ -76,6 +76,11 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
         {
         	WICED_BT_TRACE( "Bluetooth Enabled\r\n" );
 
+        	/* Use Application Settings dialog to set BT_DEVICE_ADDRESS = random */
+        	wiced_bt_device_address_t bda;
+        	wiced_bt_dev_read_local_addr( bda );
+        	WICED_BT_TRACE( "Local Bluetooth Device Address: [%B]\r\n", bda );
+
             /* Disable pairing */
             wiced_bt_set_pairable_mode( WICED_FALSE, WICED_FALSE );
 
