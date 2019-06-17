@@ -7,7 +7,7 @@
     <Kit name="CYW920819EVB-02" version="1.0"/>
   </Kits>
   <Libraries>
-    <Library name="bt_20819A1" version="1.0"/>
+    <Library name="bt_sdk" version="1.1"/>
   </Libraries>
   <ConfiguratorData/>
   <BlockConfig>
@@ -32,7 +32,7 @@
         <Param id="GlobalInput" value="true"/>
         <Param id="inFlash" value="true"/>
       </Block>
-      <Block location="ioss[0].pin[11]" alias="SPI_CLK" template="20x19_pin" version="1.0">
+      <Block location="ioss[0].pin[9]" alias="SPI_CLK" template="20x19_pin" version="1.0">
         <Param id="Type" value="PERIPHERAL"/>
         <Param id="Index" value="1"/>
         <Param id="DefaultState" value="GPIO_PIN_OUTPUT_LOW"/>
@@ -46,7 +46,7 @@
         <Param id="GlobalInput" value="true"/>
         <Param id="inFlash" value="true"/>
       </Block>
-      <Block location="ioss[0].pin[15]" alias="SPI_CS" template="20x19_pin" version="1.0">
+      <Block location="ioss[0].pin[11]" alias="SPI_CS" template="20x19_pin" version="1.0">
         <Param id="Type" value="PERIPHERAL"/>
         <Param id="Index" value="1"/>
         <Param id="DefaultState" value="GPIO_PIN_OUTPUT_LOW"/>
@@ -172,7 +172,7 @@
         <Param id="GlobalInput" value="true"/>
         <Param id="inFlash" value="true"/>
       </Block>
-      <Block location="spi[0]" alias="" template="20x19_spi" version="1.0"/>
+      <Block location="spi[1]" alias="" template="20x19_spi" version="1.0"/>
       <Block location="uart[1]" alias="" template="20x19_uart" version="1.0"/>
     </Pins>
   </BlockConfig>
@@ -186,16 +186,16 @@
       <Port name="ioss[0].pin[29].aux[0]"/>
     </Net>
     <Net>
-      <Port name="ioss[0].pin[11].aux[0]"/>
-      <Port name="spi[0].clk[0]"/>
+      <Port name="ioss[0].pin[9].aux[0]"/>
+      <Port name="spi[1].clk[0]"/>
     </Net>
     <Net>
-      <Port name="ioss[0].pin[15].aux[0]"/>
-      <Port name="spi[0].cs[0]"/>
+      <Port name="ioss[0].pin[11].aux[0]"/>
+      <Port name="spi[1].cs[0]"/>
     </Net>
     <Net>
       <Port name="ioss[0].pin[17].aux[0]"/>
-      <Port name="spi[0].miso[0]"/>
+      <Port name="spi[1].miso[0]"/>
     </Net>
     <Net>
       <Port name="ioss[0].pin[32].aux[0]"/>
@@ -207,7 +207,7 @@
     </Net>
     <Net>
       <Port name="ioss[0].pin[6].aux[0]"/>
-      <Port name="spi[0].mosi[0]"/>
+      <Port name="spi[1].mosi[0]"/>
     </Net>
   </Netlist>
 </Design>

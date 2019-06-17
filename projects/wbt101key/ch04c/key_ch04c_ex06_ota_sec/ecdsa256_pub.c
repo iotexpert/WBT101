@@ -1,9 +1,0 @@
-#include <bt_types.h>
-#include <p_256_ecc_pp.h>
-
-// public key
-Point ecdsa256_public_key = 
-{
-    { 0x452007b0, 0x5c79cadc, 0xd9999c92, 0xa823f131, 0x512b28b2, 0x00c3856f, 0x5a307e68, 0xde44f1ec, }, 
-    { 0x45d0a0c9, 0xff318832, 0x934e1078, 0xc81d4f6a, 0x2008756a, 0xe46e0a3b, 0xd27fe106, 0x81fe38f7, },
-};

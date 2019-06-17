@@ -104,7 +104,7 @@ static void mesh_app_process_set_level(uint8_t element_idx, wiced_bt_mesh_light_
 /******************************************************
  *          Variables Definitions
  ******************************************************/
-uint32_t element_index = 0;
+uint32_t global_element_index = 0;
 
 char   *mesh_dev_name                                                             = "2 Element Light KEY";
 uint8_t mesh_appearance[WICED_BT_MESH_PROPERTY_LEN_DEVICE_APPEARANCE]             = { BIT16_TO_8(APPEARANCE_LIGHT_CEILING) };
@@ -133,16 +133,12 @@ wiced_bt_mesh_core_config_property_t mesh_element1_properties[] =
 };
 #define MESH_APP_NUM_PROPERTIES (sizeof(mesh_element1_properties) / sizeof(wiced_bt_mesh_core_config_property_t))
 
-#define MESH_LIGHT_LIGHTNESS_SERVER_RED_INDEX   0
-
 
 wiced_bt_mesh_core_config_model_t   mesh_element2_models[] =
 {
     WICED_BT_MESH_MODEL_LIGHT_LIGHTNESS_SERVER,
 };
 #define MESH_APP_NUM_MODELS_GREEN  (sizeof(mesh_element2_models) / sizeof(wiced_bt_mesh_core_config_model_t))
-
-#define MESH_LIGHT_LIGHTNESS_SERVER_GREEN_INDEX   1
 
 
 wiced_bt_mesh_core_config_element_t mesh_elements[] =
@@ -219,7 +215,7 @@ wiced_bt_mesh_app_func_table_t wiced_bt_mesh_app_func_table =
     NULL                    // factory reset
 };
 
-uint8_t last_known_brightness = 0;
+uint8_t last_known_brightness[2] = {0};
 uint8_t attention_brightness = 0;
 uint8_t attention_time = 0;
 
@@ -246,11 +242,11 @@ void mesh_app_init(wiced_bool_t is_provisioned)
 
     led_control_init();
 
-    wiced_init_timer(&attention_timer, attention_timer_cb, element_index, WICED_SECONDS_PERIODIC_TIMER);
+    wiced_init_timer(&attention_timer, attention_timer_cb, global_element_index, WICED_SECONDS_PERIODIC_TIMER);
 
     // Initialize Light Lightness Server and register a callback which will be executed when it is time to change the brightness of the bulb
-    wiced_bt_mesh_model_light_lightness_server_init(MESH_LIGHT_LIGHTNESS_SERVER_RED_INDEX, mesh_app_message_handler, is_provisioned);
-    wiced_bt_mesh_model_light_lightness_server_init(MESH_LIGHT_LIGHTNESS_SERVER_GREEN_INDEX, mesh_app_message_handler, is_provisioned);
+    wiced_bt_mesh_model_light_lightness_server_init(RED, mesh_app_message_handler, is_provisioned);
+    wiced_bt_mesh_model_light_lightness_server_init(GREEN, mesh_app_message_handler, is_provisioned);
 
     // Initialize the Property Server.  We do not need to be notified when Property is set, because our only property is readonly
     wiced_bt_mesh_model_property_server_init(MESH_LIGHT_LIGHTNESS_SERVER_RED_INDEX, NULL, is_provisioned);
@@ -267,13 +263,13 @@ void mesh_app_attention(uint8_t element_idx, uint8_t time)
     if (time == 0)
     {
         wiced_stop_timer(&attention_timer);
-        led_control_set_brighness_level(last_known_brightness, element_idx);
+        led_control_set_brighness_level(last_known_brightness[element_idx], element_idx);
         return;
     }
-    element_index = element_idx;
+    global_element_index = element_idx;
     wiced_start_timer(&attention_timer, 1);
     attention_time = time;
-    attention_brightness = (last_known_brightness != 0) ? 0 : 100;
+    attention_brightness = (last_known_brightness[element_idx] != 0) ? 0 : 100;
     led_control_set_brighness_level(attention_brightness, element_idx);
 }
 
@@ -288,7 +284,7 @@ void attention_timer_cb(TIMER_PARAM_TYPE arg)
     if (--attention_time == 0)
     {
         wiced_stop_timer(&attention_timer);
-        led_control_set_brighness_level(last_known_brightness, (uint8_t)arg);
+        led_control_set_brighness_level(last_known_brightness[global_element_index], (uint8_t)arg);
         return;
     }
     attention_brightness = (attention_brightness == 0) ? 100 : 0;
@@ -320,8 +316,8 @@ void mesh_app_process_set_level(uint8_t element_idx, wiced_bt_mesh_light_lightne
     WICED_BT_TRACE("mesh light srv set level element:%d present actual:%d linear:%d remaining_time:%d\n",
         element_idx, p_status->lightness_actual_present, p_status->lightness_linear_present, p_status->remaining_time);
 
-    last_known_brightness = (uint8_t)((uint32_t)p_status->lightness_actual_present * 100 / 65535);
-    led_control_set_brighness_level(last_known_brightness, element_idx);
+    last_known_brightness[element_idx] = (uint8_t)((uint32_t)p_status->lightness_actual_present * 100 / 65535);
+    led_control_set_brighness_level(last_known_brightness[element_idx], element_idx);
 
     // If we were alerting user, stop it.
     wiced_stop_timer(&attention_timer);

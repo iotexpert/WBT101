@@ -40,9 +40,9 @@ PLATFORMS_VERSION = 1.0
 
 CONFIG = Debug
 
-CY_EXAMPLE_NAME = key_ch05_ex01_hci
+CY_EXAMPLE_NAME = key_ch05_ex01_btspy
 
-CY_EXAMPLE_DESCRIPTION = Solution project for the ch05_ex01_hci exercise on the CYW920819EVB-02 kit.
+CY_EXAMPLE_DESCRIPTION = Solution for the ch05_ex01_btspy exercise on the CYW920819EVB-02 kit.\n\nREMEMBER to set BT_DEVICE_ADDRESS = random.\n\n
 
 CY_SHOW_NEW_PROJECT := true
 
@@ -56,8 +56,15 @@ CY_APP_DEFINES += -DWICED_BT_TRACE_ENABLE
 # middleware editor.
 CY_MAINAPP_SWCOMP_EXT =
 
-CY_APP_SOURCE = ./app.c ./app_bt_cfg.c ./app_bt_cfg.h \
-				./GeneratedSource/cycfg_bt.h
+CY_APP_SOURCE = ./app.c							  		\
+				./app_bt_cfg.c						\
+				./app_bt_cfg.h						\
+				./wiced_platform.h					\
+				./design.modus						\
+				./GeneratedSource/cycfg_bt.h				\
+				./GeneratedSource/cycfg_gatt_db.c			\
+				./GeneratedSource/cycfg_gatt_db.h
+
 
 CY_APP_RESOURCES =
 

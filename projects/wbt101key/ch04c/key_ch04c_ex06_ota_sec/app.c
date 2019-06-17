@@ -349,7 +349,6 @@ void app_set_advertisement_data( void )
 wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t max_len, uint16_t *p_len )
 {
     int i = 0;
-    wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
     // Check for a matching handle entry
@@ -357,8 +356,6 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
     {
         if (app_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
-            // Detected a matching handle in external lookup table
-            isHandleInTable = WICED_TRUE;
             // Detected a matching handle in the external lookup table
             if (app_gatt_db_ext_attr_tbl[i].cur_len <= max_len)
             {
@@ -383,22 +380,6 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
         }
     }
 
-    if (!isHandleInTable)
-    {
-        // TODO: Add code to read value using handles not contained within external lookup table
-        // This can apply when the option is enabled to not generate initial value arrays.
-        // If the value for the current handle is successfully read then set the result using:
-        // res = WICED_BT_GATT_SUCCESS;
-        switch ( attr_handle )
-        {
-			default:
-				// The read operation was not performed for the indicated handle
-				WICED_BT_TRACE("Read Request to Invalid Handle: 0x%x\r\n", attr_handle);
-				res = WICED_BT_GATT_READ_NOT_PERMIT;
-				break;
-			}
-    }
-
     return res;
 }
 
@@ -412,7 +393,6 @@ wiced_bt_gatt_status_t app_gatt_get_value( uint16_t attr_handle, uint16_t conn_i
 wiced_bt_gatt_status_t app_gatt_set_value( uint16_t attr_handle, uint16_t conn_id, uint8_t *p_val, uint16_t len )
 {
     int i = 0;
-    wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bool_t validLen = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
@@ -421,8 +401,6 @@ wiced_bt_gatt_status_t app_gatt_set_value( uint16_t attr_handle, uint16_t conn_i
     {
         if (app_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
-            // Detected a matching handle in external lookup table
-            isHandleInTable = WICED_TRUE;
             // Verify that size constraints have been met
             validLen = (app_gatt_db_ext_attr_tbl[i].max_len >= len);
             if (validLen)
@@ -448,22 +426,6 @@ wiced_bt_gatt_status_t app_gatt_set_value( uint16_t attr_handle, uint16_t conn_i
                 res = WICED_BT_GATT_INVALID_ATTR_LEN;
             }
             break;
-        }
-    }
-
-    if (!isHandleInTable)
-    {
-        // TODO: Add code to write value using handles not contained within external lookup table
-        // This can apply when the option is enabled to not generate initial value arrays.
-        // If the value for the current handle is successfully written then set the result using:
-        // res = WICED_BT_GATT_SUCCESS;
-        switch ( attr_handle )
-        {
-			default:
-				// The write operation was not performed for the indicated handle
-				WICED_BT_TRACE("Write Request to Invalid Handle: 0x%x\r\n", attr_handle);
-				res = WICED_BT_GATT_WRITE_NOT_PERMIT;
-				break;
         }
     }
 
