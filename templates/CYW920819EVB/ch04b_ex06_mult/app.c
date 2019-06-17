@@ -38,11 +38,17 @@
 #define PWM_ALWAYS_ON_TOGGLE	(PWM_BONDING_INIT)
 #define PWM_ALWAYS_OFF_TOGGLE	(PWM_MAX)
 
-/* NVRAM VSID allocation */
-#define VSID_HOSTINFO			(WICED_NVRAM_VSID_START)
-#define VSID_REMOTE_KEY			(WICED_NVRAM_VSID_START+1)
-#define VSID_LOCAL_KEY			(WICED_NVRAM_VSID_START+2)
-
+/* Max number of bonded devices */
+#define BOND_MAX    4
+/* NVSRAM locations available for application data - NVSRAM Volatile Section Identifier */
+/* VSID_BOND_INFO stores the number of bonded devices and the next one to be over-written when space is full */
+/* VSID_LOCAL_KEYS holds the privacy keys */
+/* VSID_HOST_INFO0 stores the BD_ADDR and CCCD values for the first host - the others follow that one */
+/* VSID_REMOTE_KEYS0 stores the encryption keys for the first host - the others follow that one in order */
+#define VSID_BOND_INFO         ( WICED_NVRAM_VSID_START )
+#define VSID_LOCAL_KEYS        ( VSID_BOND_INFO + 1 )
+#define VSID_HOST_INFO0        ( VSID_LOCAL_KEYS + 1 )
+#define VSID_REMOTE_KEYS0      ( VSID_HOST_INFO0 + BOND_MAX )
 
 /*******************************************************************
  * Function Prototypes
@@ -59,19 +65,28 @@ void							button_cback( void *data, uint8_t port_pin );
 void							rx_cback( void *data );
 
 
-
 /*******************************************************************
  * Global/Static Variables
  ******************************************************************/
 uint16_t connection_id = 0;
 
+uint8_t bondIndex = 0;      /* This is the index for the VSID for the host we are currently bonded to */
+uint8_t bondInfo[] = {0,0}; /* This holds bonding info (number bonded and next free slot) */
+enum
+{
+    NUM_BONDED,
+    NEXT_FREE
+};
 uint16_t bonded = WICED_FALSE;		// State of the peripheral - bonded or bonding
 
-struct hostinfo						// Remember the central and the notification status
+/* Host information for the currently bonded host */
+struct hostinfo_struct
 {
-	BD_ADDR	remote_addr;
-	uint8_t	cccd[2];
-} hostinfo;
+    BD_ADDR   bdaddr;   /* BD address of the bonded host so we know if we reconnected to the same device */
+    uint8_t  cccd[2];     /* Remember the value of the CCCD (whether notifications were on or off last time we were connected) */
+} __attribute__((packed));
+struct hostinfo_struct hostinfo;
+struct hostinfo_struct hostinfoTemp;
 
 
 /*******************************************************************************
@@ -100,10 +115,17 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 {
     wiced_result_t status = WICED_BT_SUCCESS;
 
-    wiced_bt_device_link_keys_t link_keys;
     wiced_result_t key_read_status;
+    wiced_bt_dev_status_t result = WICED_BT_SUCCESS;
+    wiced_bt_device_address_t bda = { 0 };
+    wiced_bt_ble_advert_mode_t *p_adv_mode = NULL;
+    wiced_bt_device_link_keys_t link_keys;
+
     uint16_t bytes;
     uint16_t counter;
+
+    uint8_t count;
+    uint8_t *p;
 
     switch( event )
     {
@@ -117,18 +139,27 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 				wiced_bt_dev_read_local_addr( bda );
 				WICED_BT_TRACE( "Local Bluetooth Device Address: [%B]\r\n", bda );
 
-			    /* Load the address resolution DB with the keys stored in the NVRAM */
-			    /* If no client has bonded previously, then this read will fail */
-			    memset( &link_keys, 0, sizeof(wiced_bt_device_link_keys_t) );
-			    wiced_hal_read_nvram( VSID_REMOTE_KEY, sizeof(wiced_bt_device_link_keys_t), (uint8_t*)&link_keys, &key_read_status);
-			    if( key_read_status == WICED_BT_SUCCESS )
-			    {
-			    	key_read_status = wiced_bt_dev_add_device_to_address_resolution_db ( &link_keys );
-			        WICED_BT_TRACE("\tRead paired keys from NVSRAM and add to address resolution %B result:%d \r\n", &link_keys, key_read_status );
-			        bonded = WICED_TRUE; /* We have bonding information already, so don't go into bonding mode */
-			    }
+				/* Load the number of bonded devices and the next slot to be over-written when space is full */
+				wiced_hal_read_nvram( VSID_BOND_INFO, sizeof(bondInfo), bondInfo, &status);
+				if(status == WICED_BT_SUCCESS)
+				{
+					if(bondInfo[NUM_BONDED] > 0)
+					{
+						/* Load the address resolution DB with each of the keys stored in the NVRAM */
+						for(count = 0; count < bondInfo[NUM_BONDED]; count++)
+						{
+							memset( &link_keys, 0, sizeof(wiced_bt_device_link_keys_t));
+							p = (uint8_t*)&link_keys;
+							wiced_hal_read_nvram( VSID_REMOTE_KEYS0 + count, sizeof(wiced_bt_device_link_keys_t), p, &status);
+							status = wiced_bt_dev_add_device_to_address_resolution_db ( &link_keys );
+							WICED_BT_TRACE("\tRead paired keys from NVSRAM and add to address resolution %B result:%d \r\n", p, status );
+						}
+						bonded = WICED_TRUE;    /* We have bonding information already, so don't go into bonding mode */
+					}
+				}
+				WICED_BT_TRACE("Number of bonded devices: %d, Next free slot: %d\n",bondInfo[NUM_BONDED], bondInfo[NEXT_FREE]);
 
-				/* Configure the GATT database and advertise for connections */
+				/* Register GATT callback and initialize the GATT database */
 				wiced_bt_gatt_register( app_gatt_callback );
 				wiced_bt_gatt_db_init( gatt_database, gatt_database_len );
 
@@ -159,6 +190,13 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 			}
 			break;
 
+		case BTM_USER_CONFIRMATION_REQUEST_EVT:
+			WICED_BT_TRACE("\r\n********************\r\n" );
+			WICED_BT_TRACE( "\r\nNUMERIC = %06d\r\n\n", p_event_data->user_confirmation_request.numeric_value );
+			WICED_BT_TRACE("\r\n********************\r\n\n" );
+			wiced_bt_dev_confirm_req_reply( WICED_BT_SUCCESS, p_event_data->user_confirmation_request.bd_addr );
+			break;
+
 		case BTM_PASSKEY_NOTIFICATION_EVT:
 			WICED_BT_TRACE("\r\n********************\r\n" );
 			WICED_BT_TRACE("* PASSKEY = %06d *", p_event_data->user_passkey_notification.passkey );
@@ -168,33 +206,54 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 		case BTM_PAIRING_IO_CAPABILITIES_BLE_REQUEST_EVT: 		// IO capabilities request
 			p_event_data->pairing_io_capabilities_ble_request.auth_req = BTM_LE_AUTH_REQ_SC_MITM_BOND;
 			p_event_data->pairing_io_capabilities_ble_request.init_keys = BTM_LE_KEY_PENC|BTM_LE_KEY_PID;
-			p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_DISPLAY_ONLY;
+			p_event_data->pairing_io_capabilities_ble_request.local_io_cap = BTM_IO_CAPABILITIES_DISPLAY_AND_YES_NO_INPUT;
 			break;
 
 		case BTM_PAIRING_COMPLETE_EVT: 						// Pairing Complete event
 		    WICED_BT_TRACE( "Pairing Complete %d.\n\r", p_event_data->pairing_complete.pairing_complete_info.ble.reason );
 
-	        if ( p_event_data->pairing_complete.pairing_complete_info.ble.reason == WICED_BT_SUCCESS ) /* Bonding successful */
-	        {
-	        	/* Write to NVRAM */
-	        	wiced_hal_write_nvram( VSID_HOSTINFO, sizeof(hostinfo), (uint8_t*)&hostinfo, &status );
-	        	WICED_BT_TRACE("\tBonding info save to NVRAM: %B\n\r", &hostinfo);
-	        	bonded = WICED_TRUE; // remember that the device is now bonded
-	        }
+			/* Now that pairing is complete, we will save the BDADDR of the host to NVRAM */
+			/* Note that the .bdaddr was captured in the GATT connect callback function */
+			if ( p_event_data->pairing_complete.pairing_complete_info.ble.reason == WICED_BT_SUCCESS ) /* Bonding successful */
+			{
+				/* Write to NVRAM */
+				wiced_hal_write_nvram( VSID_HOST_INFO0 + bondInfo[NEXT_FREE], sizeof(hostinfo), (uint8_t*)&hostinfo, &status );
+				WICED_BT_TRACE("\tBonding info save to NVRAM: %B\n\r", &hostinfo);
+				bondIndex = bondInfo[NEXT_FREE]; // Remember which slot in the NVRAM the host we just connected to is in */
+				bonded = WICED_TRUE; // Exit bonding mode
+
+				/* Increment number of bonded devices and next free slot and save them in NVRAM */
+				bondInfo[NUM_BONDED]++;
+				bondInfo[NEXT_FREE] = (bondInfo[NEXT_FREE] + 1) % BOND_MAX;
+				wiced_hal_write_nvram( VSID_BOND_INFO, sizeof(bondInfo), bondInfo, &result);
+				WICED_BT_TRACE("Number of bonded devices: %d, Next free slot: %d\n",bondInfo[NUM_BONDED], bondInfo[NEXT_FREE]);
+			}
+			else
+			{
+				WICED_BT_TRACE("Bonding failed! \n\r");
+			}
+
 			break;
 
 		case BTM_ENCRYPTION_STATUS_EVT: 						// Encryption Status Event
 	        WICED_BT_TRACE( "Encryption Status event: bd ( %B ) res %d\n\r", p_event_data->encryption_status.bd_addr, p_event_data->encryption_status.result );
 
-	        /* Connection has been encrypted and we are already bonded meaning that we have correct/paired device restore values in the database */
-	    	if( WICED_TRUE == bonded )
-	    	{
-	    		wiced_hal_read_nvram( VSID_HOSTINFO, sizeof(hostinfo), (uint8_t*)&hostinfo, &(p_event_data->encryption_status.result) );
-	    		/* Set CCCD value from the value that was previously saved in the NVRAM */
-	    		app_modus_counter_client_char_config[0] = hostinfo.cccd[0];
-	    		app_modus_counter_client_char_config[1] = hostinfo.cccd[1];
-	    		WICED_BT_TRACE("\tRestored existing bonded device info from NVRAM %B result: %d \n\r", hostinfo.remote_addr);
-	    	}
+	        /* Search for the bd_addr that we just connected to in the NVRAM hostinfo. If it is found then in means we were previously */
+	        /* connected to this device so we need to restore the values into the hostinfo structure */
+	        for(count = 0; count < bondInfo[NUM_BONDED]; count++)
+	        {
+	            wiced_hal_read_nvram( VSID_HOST_INFO0 + count, sizeof(hostinfoTemp), (uint8_t*)&hostinfoTemp, &result );
+	            if( memcmp(hostinfo.bdaddr,hostinfoTemp.bdaddr,sizeof(hostinfo.bdaddr) ) == 0) /* Matching address */
+	            {
+	                hostinfo.cccd[0] = hostinfoTemp.cccd[0];  /* Copy in the cccd value from the temporary holding location */
+	                hostinfo.cccd[1] = hostinfoTemp.cccd[1];
+	                app_modus_counter_client_char_config[0] = hostinfo.cccd[0]; /* Set CCCD value from the value that was previously saved in the NVRAM */
+	                app_modus_counter_client_char_config[1] = hostinfo.cccd[1];
+	                bondIndex = count; /* Remember which NVRAM slot belongs to the currently connected device */
+	                WICED_BT_TRACE("\tRestored existing bonded device info from NVRAM %B result: %d \n\r", hostinfo.bdaddr);
+	                break; /* Exit out of loop since we found what we need */
+	            }
+	        }
 			break;
 
 		case BTM_SECURITY_REQUEST_EVT: 						// Security access
@@ -212,21 +271,35 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
 		case BTM_PAIRED_DEVICE_LINK_KEYS_UPDATE_EVT: 			// Save link keys with app
 			WICED_BT_TRACE( "Paired Device Key Update\n\r");
-			wiced_hal_write_nvram ( VSID_REMOTE_KEY, sizeof( wiced_bt_device_link_keys_t ), (uint8_t*)&(p_event_data->paired_device_link_keys_update), &status );
-			WICED_BT_TRACE( "\tKeys save to NVRAM %B result: %d \n\r", (uint8_t*)&(p_event_data->paired_device_link_keys_update), status );
+	        wiced_hal_write_nvram ( VSID_REMOTE_KEYS0 + bondInfo[NEXT_FREE], sizeof( wiced_bt_device_link_keys_t ), (uint8_t*)&(p_event_data->paired_device_link_keys_update), &status );
+	        WICED_BT_TRACE("\tKeys save to NVRAM %B result: %d \n\r", (uint8_t*)&(p_event_data->paired_device_link_keys_update), status);
 			break;
 
 		case BTM_PAIRED_DEVICE_LINK_KEYS_REQUEST_EVT: 		// Retrieval saved link keys
 	        WICED_BT_TRACE( "Paired Device Link Request Keys Event for device %B\n\r",&(p_event_data->paired_device_link_keys_request ) );
 
-	        /* If the status from read_nvram is not SUCCESS, the stack will generate keys and will then call BTM_PAIRED_DEVICE_LINK_KEYS_UPDATE_EVT so that they can be stored */
-	        wiced_hal_read_nvram( VSID_REMOTE_KEY, sizeof(wiced_bt_device_link_keys_t), (uint8_t *) &(p_event_data->paired_device_link_keys_request), &status );
-	        WICED_BT_TRACE( "\tKeys read from NVRAM %B result: %d \n\r", &(p_event_data->paired_device_link_keys_request), status );
+	        /* Need to search to see if the BD_ADDR we are looking for is in NVRAM. If not, we return WICED_BT_ERROR and the stack */
+	        /* will generate keys and will then call BTM_PAIRED_DEVICE_LINK_KEYS_UPDATE_EVT so that they can be stored */
+	        result = WICED_BT_ERROR;  /* Assume the device won't be found. If it is, we will set this back to WICED_BT_SUCCESS */
+	        for(count = 0; count < bondInfo[NUM_BONDED]; count++)
+	        {
+	            wiced_hal_read_nvram( VSID_REMOTE_KEYS0 + count, sizeof(link_keys), (uint8_t*)&link_keys, &status );
+	            WICED_BT_TRACE("\tKeys read from NVRAM %B result: %d \n\r", &link_keys, status);
+	            if( memcmp(&(link_keys.bd_addr),&(p_event_data->paired_device_link_keys_request.bd_addr),sizeof(wiced_bt_device_address_t) ) == 0 )
+	            {
+	                WICED_BT_TRACE("\tMatching Device Key Found \n\r");
+	                /* Copy the key to where the stack wants it */
+	                memcpy(&(p_event_data->paired_device_link_keys_request),&(link_keys), sizeof(link_keys));
+	                result = WICED_BT_SUCCESS;
+	                break; /* Exit the loop since we found what we want */
+	            }
+	        }
+	        status = result; /* The return status will be SUCCESS if the value was found and ERROR if the value wasn't found */
 	        break;
 
 		case BTM_LOCAL_IDENTITY_KEYS_UPDATE_EVT: 				// Save keys to NVRAM
 	        WICED_BT_TRACE( "Local Identity Key Update\n\r" );
-	        bytes = wiced_hal_write_nvram ( VSID_LOCAL_KEY, sizeof( wiced_bt_local_identity_keys_t ), (uint8_t*)&(p_event_data->local_identity_keys_update), &status );
+	        bytes = wiced_hal_write_nvram ( VSID_LOCAL_KEYS, sizeof( wiced_bt_local_identity_keys_t ), (uint8_t*)&(p_event_data->local_identity_keys_update), &status );
 
 	        WICED_BT_TRACE( "\tlocal keys save to NVRAM:\n\r" );
 	        for( counter = 0; counter<bytes;counter++ )
@@ -243,7 +316,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 		case BTM_LOCAL_IDENTITY_KEYS_REQUEST_EVT: 			// Read keys from NVRAM
 	        WICED_BT_TRACE( "Local Identity Key Request\n\r" );
 	        /* If the status from read_nvram is not SUCCESS, the stack will generate keys and will then call BTM_LOCAL_IDENTITY_KEYS_UPDATE_EVT so that they can be stored */
-	        bytes = wiced_hal_read_nvram( VSID_LOCAL_KEY, sizeof(wiced_bt_local_identity_keys_t), (uint8_t *)&(p_event_data->local_identity_keys_request), &status );
+	        bytes = wiced_hal_read_nvram( VSID_LOCAL_KEYS, sizeof(wiced_bt_local_identity_keys_t), (uint8_t *)&(p_event_data->local_identity_keys_request), &status );
 
 	        WICED_BT_TRACE( "\tlocal keys read from NVRAM:\n\r" );
 	        for( counter = 0; counter<bytes;counter++ )
@@ -315,7 +388,7 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 				connection_id = p_conn->conn_id;
 
 				// Save the remote bd_addr into hostinfo because, at this point, we know that is good data
-	            memcpy( hostinfo.remote_addr, p_conn->bd_addr, sizeof( BD_ADDR ) );
+	            memcpy( hostinfo.bdaddr, p_conn->bd_addr, sizeof( BD_ADDR ) );
 			}
 			else
 			{
@@ -326,7 +399,7 @@ wiced_bt_gatt_status_t app_gatt_callback( wiced_bt_gatt_evt_t event, wiced_bt_ga
 				connection_id = 0;
 
 	            /* Reset the CCCD value so that on a reconnect CCCD will be off */
-	            memset( &hostinfo.remote_addr, 0, sizeof( BD_ADDR ) );
+	            memset( &hostinfo.bdaddr, 0, sizeof( BD_ADDR ) );
 	            app_modus_counter_client_char_config[0] = 0;
 	            app_modus_counter_client_char_config[1] = 0;
 
@@ -394,7 +467,6 @@ wiced_bt_gatt_status_t app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_
 	uint16_t *p_len = 		p_attr->data.read_req.p_val_len;
 
     int i = 0;
-    wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
     // Check for a matching handle entry
@@ -402,8 +474,6 @@ wiced_bt_gatt_status_t app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_
     {
         if (app_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
-            // Detected a matching handle in external lookup table
-            isHandleInTable = WICED_TRUE;
             // Detected a matching handle in the external lookup table
             if (app_gatt_db_ext_attr_tbl[i].cur_len <= *p_len)
             {
@@ -428,22 +498,6 @@ wiced_bt_gatt_status_t app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_
         }
     }
 
-    if (!isHandleInTable)
-    {
-        // TODO: Add code to read value using handles not contained within external lookup table
-        // This can apply when the option is enabled to not generate initial value arrays.
-        // If the value for the current handle is successfully read then set the result using:
-        // res = WICED_BT_GATT_SUCCESS;
-        switch ( attr_handle )
-        {
-			default:
-				// The read operation was not performed for the indicated handle
-				WICED_BT_TRACE("Read Request to Invalid Handle: 0x%x\r\n", attr_handle);
-				res = WICED_BT_GATT_READ_NOT_PERMIT;
-				break;
-        }
-    }
-
     return res;
 }
 
@@ -458,7 +512,6 @@ wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_
 	uint16_t len = 			p_attr->data.write_req.val_len;
 
     int i = 0;
-    wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bool_t validLen = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
@@ -467,8 +520,6 @@ wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_
     {
         if (app_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
-            // Detected a matching handle in external lookup table
-            isHandleInTable = WICED_TRUE;
             // Verify that size constraints have been met
             validLen = (app_gatt_db_ext_attr_tbl[i].max_len >= len);
             if (validLen)
@@ -492,8 +543,8 @@ wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_
 
                 		/* Save value to NVRAM */
                 		wiced_result_t temp_result;
-                		wiced_hal_write_nvram( VSID_HOSTINFO, sizeof(hostinfo), (uint8_t*)&hostinfo, &temp_result );
-                		WICED_BT_TRACE( "\t\tWrite CCCD value to NVRAM\n\r" );
+                		wiced_hal_write_nvram( VSID_HOST_INFO0 + bondIndex, sizeof(hostinfo), (uint8_t*)&hostinfo, &temp_result );
+                		WICED_BT_TRACE( "\t\tWrite CCCD value to NVRAM for bonded devcie\n\r" );
                 }
             }
             else
@@ -502,22 +553,6 @@ wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_
                 res = WICED_BT_GATT_INVALID_ATTR_LEN;
             }
             break;
-        }
-    }
-
-    if (!isHandleInTable)
-    {
-        // TODO: Add code to write value using handles not contained within external lookup table
-        // This can apply when the option is enabled to not generate initial value arrays.
-        // If the value for the current handle is successfully written then set the result using:
-        // res = WICED_BT_GATT_SUCCESS;
-        switch ( attr_handle )
-        {
-			default:
-				// The write operation was not performed for the indicated handle
-				WICED_BT_TRACE("Write Request to Invalid Handle: 0x%x\r\n", attr_handle);
-				res = WICED_BT_GATT_WRITE_NOT_PERMIT;
-				break;
         }
     }
 
@@ -555,9 +590,12 @@ void rx_cback( void *data )
 {
 	uint8_t readbyte;
     wiced_result_t                  result;
-    wiced_bt_device_link_keys_t     keys;
+    wiced_bt_device_link_keys_t     link_keys;
     wiced_bt_local_identity_keys_t  local_keys;
     BD_ADDR                         bonded_address;
+
+    uint8_t                         count;
+    wiced_bt_dev_status_t           status;
 
     /* Read one byte from the buffer and (unlike GPIO) reset the interrupt */
     wiced_hal_puart_read( &readbyte );
@@ -566,24 +604,53 @@ void rx_cback( void *data )
     /* Remove bonding info if the user sends 'e' */
     if( readbyte == 'e' )
     {
-		/* Put into bonding mode  */
-		bonded = WICED_FALSE;
-		wiced_hal_pwm_change_values( PWM0, PWM_BONDING_TOGGLE, PWM_BONDING_INIT );
+        if(bonded == WICED_TRUE) /* Enter bond mode */
+         {
+             /* Check to see if we need to erase one of the existing devices */
+             if(bondInfo[NUM_BONDED] == BOND_MAX)
+             {
+                 /* Remove oldest device from the bonded device list */
+                 wiced_hal_read_nvram( VSID_HOST_INFO0 + bondInfo[NEXT_FREE], sizeof(bonded_address), (uint8_t*)&bonded_address, &result );
+                 wiced_bt_dev_delete_bonded_device(bonded_address);
+                 WICED_BT_TRACE( "Remove host %B from bonded device list \n\r", bonded_address );
 
-		/* Remove from the bonded device list */
-		wiced_hal_read_nvram( VSID_HOSTINFO, sizeof(bonded_address), (uint8_t*)&bonded_address, &result );
-		wiced_bt_dev_delete_bonded_device(bonded_address);
-		WICED_BT_TRACE( "Remove host %B from bonded device list \n\r", bonded_address );
-		WICED_BT_TRACE( "Bonding information removed\n\r" );
+                 /* Remove oldest device from address resolution database */
+                 wiced_hal_read_nvram( VSID_REMOTE_KEYS0 + bondInfo[NEXT_FREE], sizeof(wiced_bt_device_link_keys_t), (uint8_t*)&link_keys, &result);
+                 wiced_bt_dev_remove_device_from_address_resolution_db ( &link_keys );
 
-		/* Remove device from address resolution database */
-		wiced_hal_read_nvram( VSID_REMOTE_KEY, sizeof(wiced_bt_device_link_keys_t), (uint8_t*)&keys, &result);
-		wiced_bt_dev_remove_device_from_address_resolution_db ( &keys );
+                 /* Remove oldest device bonding information from NVRAM */
+                 memset( &hostinfoTemp, 0, sizeof(hostinfoTemp));
+                 memset( &link_keys, 0, sizeof(wiced_bt_device_link_keys_t));
+                 wiced_hal_write_nvram( VSID_HOST_INFO0 + bondInfo[NEXT_FREE], sizeof(hostinfoTemp), (uint8_t*)&hostinfoTemp, &result );
+                 wiced_hal_write_nvram ( VSID_REMOTE_KEYS0 + bondInfo[NEXT_FREE], sizeof( wiced_bt_device_link_keys_t ), (uint8_t*)&link_keys, &result );
 
-		/* Remove bonding information from NVRAM */
-		/* Remove bonding information from NVRAM */
-		wiced_hal_delete_nvram(VSID_HOSTINFO, &result);
-		wiced_hal_delete_nvram(VSID_REMOTE_KEY, &result);
+                 /* Reduce number of bonded devices by one */
+                 bondInfo[NUM_BONDED]--;
+             }
+
+             /* Put into bonding mode  */
+             bonded = WICED_FALSE;
+             wiced_hal_pwm_change_values( PWM0, PWM_BONDING_TOGGLE, PWM_BONDING_INIT );
+             WICED_BT_TRACE( "Bonding Mode Entered\n\r");
+         }
+         else /* Exit bonding mode */
+         {
+             bonded = WICED_TRUE;
+             wiced_hal_pwm_change_values( PWM0, PWM_BONDED_TOGGLE, PWM_BONDING_INIT );
+             WICED_BT_TRACE( "Bonding Mode Exited\n\r");
+         }
     }
+
+    /* List bonded devices if user enters 'l' (lower-case L) */
+    if( readbyte == 'l' )
+    {
+        WICED_BT_TRACE("Number of bonded devices: %d, Next free slot: %d\n",bondInfo[NUM_BONDED], bondInfo[NEXT_FREE]);
+        for(count = 0; count < bondInfo[NUM_BONDED]; count++)
+        {
+            wiced_hal_read_nvram( VSID_REMOTE_KEYS0 + count, sizeof(link_keys), (uint8_t*)&link_keys, &status );
+            WICED_BT_TRACE("\tBD_ADDR: %B\n\r", &link_keys);
+        }
+    }
+
 }
 

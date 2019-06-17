@@ -39,9 +39,9 @@ PLATFORMS_VERSION = 1.0
 
 CONFIG = Debug
 
-CY_EXAMPLE_NAME = key_ch04b_ex06_mult
+CY_EXAMPLE_NAME = ch05_ex01_btspy
 
-CY_EXAMPLE_DESCRIPTION = Key project for ch04b_ex06_mult on the CYW920819EVB-02 kit.\n\nREMEMBER to set BT_DEVICE_ADDRESS = random.\n\n
+CY_EXAMPLE_DESCRIPTION = Template for the ch05_ex01_btspy exercise on the CYW920819EVB-02 kit.\n\nREMEMBER to set BT_DEVICE_ADDRESS = random.\n\n
 
 CY_SHOW_NEW_PROJECT := true
 
@@ -60,10 +60,7 @@ CY_APP_SOURCE = ./app.c								\
 				./app_bt_cfg.h						\
 				./wiced_platform.h					\
 				./design.modus						\
-				./GeneratedSource/cycfg_bt.h		\
-				./GeneratedSource/cycfg_gatt_db.h	\
-				./GeneratedSource/cycfg_gatt_db.c
-
+				./GeneratedSource/cycfg_bt.h
 
 CY_APP_RESOURCES =
 

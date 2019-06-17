@@ -78,7 +78,7 @@ const wiced_bt_cfg_settings_t wiced_bt_cfg_settings =
         /* Advertisement scan configuration */
         .high_duty_scan_interval         = WICED_BT_CFG_DEFAULT_HIGH_DUTY_SCAN_INTERVAL,               /**< High duty scan interval */
         .high_duty_scan_window           = WICED_BT_CFG_DEFAULT_HIGH_DUTY_SCAN_WINDOW,                 /**< High duty scan window */
-        .high_duty_scan_duration         = 5,                                                          /**< High duty scan duration in seconds (0 for infinite) */
+        .high_duty_scan_duration         = 0,                                                          /**< High duty scan duration in seconds (0 for infinite) */
 
         .low_duty_scan_interval          = WICED_BT_CFG_DEFAULT_LOW_DUTY_SCAN_INTERVAL,                /**< Low duty scan interval  */
         .low_duty_scan_window            = WICED_BT_CFG_DEFAULT_LOW_DUTY_SCAN_WINDOW,                  /**< Low duty scan window */
@@ -133,9 +133,9 @@ const wiced_bt_cfg_settings_t wiced_bt_cfg_settings =
     .gatt_cfg =                                                     /* GATT configuration */
     {
         .appearance                     = APPEARANCE_GENERIC_TAG,                                     /**< GATT appearance (see gatt_appearance_e) */
-        .client_max_links               = 0,                                                          /**< Client config: maximum number of servers that local client can connect to  */
+        .client_max_links               = 1, /* WBT101 */                                             /**< Client config: maximum number of servers that local client can connect to  */
         .server_max_links               = 1,                                                          /**< Server config: maximum number of remote clients connections allowed by the local */
-        .max_attr_len                   = 512,                                                       /**< Maximum attribute length; gki_cfg must have a corresponding buffer pool that can hold this length */
+        .max_attr_len                   = 512,                                                        /**< Maximum attribute length; gki_cfg must have a corresponding buffer pool that can hold this length */
         .max_mtu_size                   = 515                                                         /**< Maximum MTU size for GATT connections, should be between 23 and (max_attr_len + 5) */
     },
 

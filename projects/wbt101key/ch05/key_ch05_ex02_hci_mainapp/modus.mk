@@ -1,5 +1,6 @@
 # This is a file used and owned by the ModusToolbox IDE. Users should not modify this file.
-FEATURE_VALUES=BT_DEVICE_ADDRESS,default UART,AUTO APP_XIP,xip_pi ENABLE_DEBUG,0 
+OSNS=
+FEATURE_VALUES=BT_DEVICE_ADDRESS,random UART,AUTO APP_XIP,xip_pi ENABLE_DEBUG,0 
 DEVICE=CYW20819A1KFBG
 #
 # Copyright 2019, Cypress Semiconductor Corporation or a subsidiary of
@@ -39,9 +40,9 @@ PLATFORMS_VERSION = 1.0
 
 CONFIG = Debug
 
-CY_EXAMPLE_NAME = ch05_ex01_hci
+CY_EXAMPLE_NAME = key_ch05_ex02_hci
 
-CY_EXAMPLE_DESCRIPTION = Template project for the ch05_ex01_hci exercise on the CYW920819EVB-02 kit.
+CY_EXAMPLE_DESCRIPTION = Solution project for the ch05_ex02_hci exercise on the CYW920819EVB-02 kit.
 
 CY_SHOW_NEW_PROJECT := true
 
@@ -56,7 +57,9 @@ CY_APP_DEFINES += -DWICED_BT_TRACE_ENABLE
 CY_MAINAPP_SWCOMP_EXT =
 
 CY_APP_SOURCE = ./app.c ./app_bt_cfg.c ./app_bt_cfg.h \
-				./GeneratedSource/cycfg_bt.h
+				./GeneratedSource/cycfg_bt.h \
+				./GeneratedSource/cycfg_gatt_db.h \
+				./GeneratedSource/cycfg_gatt_db.c
 
 CY_APP_RESOURCES =
 

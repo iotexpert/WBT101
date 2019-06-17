@@ -10,8 +10,6 @@
 #include "GeneratedSource/cycfg.h"
 #include "GeneratedSource/cycfg_gatt_db.h"
 
-#include "wiced_transport.h"
-#include "hci_control_api.h"
 
 /*******************************************************************
  * Macros to assist development of the exercises
@@ -49,39 +47,11 @@ void							app_set_advertisement_data( void );
 
 void							button_cback( void *data, uint8_t port_pin );
 
-uint32_t hci_control_process_rx_cmd( uint8_t* p_data, uint32_t len );
-
 
 /*******************************************************************
  * Global/Static Variables
  ******************************************************************/
 uint8_t mfr_data[] = { 0x31, 0x01, 0x00 };
-
-static wiced_transport_buffer_pool_t* transport_pool = NULL;
-
-/*******************************************************************
- * Transport Configuration
- ******************************************************************/
-#define TRANS_UART_BUFFER_SIZE  1024
-#define TRANS_UART_BUFFER_COUNT 2
-
-const wiced_transport_cfg_t  transport_cfg =
-{
-    .type                = WICED_TRANSPORT_UART,		/**< Wiced transport type. */
-    .cfg.uart_cfg        =
-    {
-	.mode = WICED_TRANSPORT_UART_HCI_MODE,		/**<  UART mode, HCI or Raw */
-	.baud_rate = HCI_UART_DEFAULT_BAUD			/**<  UART baud rate */
-    },
-    .rx_buff_pool_cfg    =
-    {
-    	.buffer_size = TRANS_UART_BUFFER_SIZE,		/**<  Rx Buffer Size */
-	.buffer_count = TRANS_UART_BUFFER_COUNT		/**<  Rx Buffer Count */
-    },
-    .p_status_handler    = NULL,				/**< Wiced transport status handler.*/
-    .p_data_handler      = hci_control_process_rx_cmd,	/**< Wiced transport receive data handler. */
-    .p_tx_complete_cback = NULL				/**< Wiced transport tx complete callback. */
-};
 
 
 /*******************************************************************************
@@ -89,14 +59,7 @@ const wiced_transport_cfg_t  transport_cfg =
 ********************************************************************************/
 void application_start( void )
 {
-	/* Initialize the transport configuration */
-	    wiced_transport_init( &transport_cfg );
-
-	    /* Initialize Transport Buffer Pool */
-	    transport_pool = wiced_transport_create_buffer_pool ( TRANS_UART_BUFFER_SIZE,
-	     TRANS_UART_BUFFER_COUNT );
-
-	#if ((defined WICED_BT_TRACE_ENABLE) || (defined HCI_TRACE_OVER_TRANSPORT))
+    #if ((defined WICED_BT_TRACE_ENABLE) || (defined HCI_TRACE_OVER_TRANSPORT))
         /* Select Debug UART setting to see debug traces on the appropriate port */
         wiced_set_debug_uart( WICED_ROUTE_DEBUG_TO_PUART );
     #endif
@@ -118,7 +81,6 @@ void application_start( void )
 wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wiced_bt_management_evt_data_t *p_event_data )
 {
     wiced_result_t status = WICED_BT_SUCCESS;
-    uint8_t temp;
 
     switch( event )
     {
@@ -183,15 +145,6 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
 		case BTM_BLE_ADVERT_STATE_CHANGED_EVT:					// Advertising State Change
 			WICED_BT_TRACE( "Advertising state = %d\r\n", p_event_data->ble_advert_state_changed );
-			if( p_event_data->ble_advert_state_changed == 0) /* Advertising stopped */
-			{
-				temp = 0;
-			}
-			else /* Advertising started */
-			{
-				 temp = 1;
-			}
-			wiced_transport_send_data(HCI_CONTROL_LE_COMMAND_ADVERTISE, &temp, 1 );
 			break;
 
 		default:
@@ -301,7 +254,6 @@ wiced_bt_gatt_status_t app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_
 	uint16_t *p_len = 		p_attr->data.read_req.p_val_len;
 
     int i = 0;
-    wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
     // Check for a matching handle entry
@@ -309,8 +261,6 @@ wiced_bt_gatt_status_t app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_
     {
         if (app_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
-            // Detected a matching handle in external lookup table
-            isHandleInTable = WICED_TRUE;
             // Detected a matching handle in the external lookup table
             if (app_gatt_db_ext_attr_tbl[i].cur_len <= *p_len)
             {
@@ -333,22 +283,6 @@ wiced_bt_gatt_status_t app_gatt_get_value( wiced_bt_gatt_attribute_request_t *p_
         }
     }
 
-    if (!isHandleInTable)
-    {
-        // TODO: Add code to read value using handles not contained within external lookup table
-        // This can apply when the option is enabled to not generate initial value arrays.
-        // If the value for the current handle is successfully read then set the result using:
-        // res = WICED_BT_GATT_SUCCESS;
-        switch ( attr_handle )
-        {
-        default:
-            // The read operation was not performed for the indicated handle
-            WICED_BT_TRACE("Read Request to Invalid Handle: 0x%x\n", attr_handle);
-            res = WICED_BT_GATT_READ_NOT_PERMIT;
-            break;
-        }
-    }
-
     return res;
 }
 
@@ -363,7 +297,6 @@ wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_
 	uint16_t len = 			p_attr->data.write_req.val_len;
 
     int i = 0;
-    wiced_bool_t isHandleInTable = WICED_FALSE;
     wiced_bool_t validLen = WICED_FALSE;
     wiced_bt_gatt_status_t res = WICED_BT_GATT_INVALID_HANDLE;
 
@@ -372,8 +305,6 @@ wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_
     {
         if (app_gatt_db_ext_attr_tbl[i].handle == attr_handle)
         {
-            // Detected a matching handle in external lookup table
-            isHandleInTable = WICED_TRUE;
             // Verify that size constraints have been met
             validLen = (app_gatt_db_ext_attr_tbl[i].max_len >= len);
             if (validLen)
@@ -398,22 +329,6 @@ wiced_bt_gatt_status_t app_gatt_set_value( wiced_bt_gatt_attribute_request_t *p_
         }
     }
 
-    if (!isHandleInTable)
-    {
-        // TODO: Add code to write value using handles not contained within external lookup table
-        // This can apply when the option is enabled to not generate initial value arrays.
-        // If the value for the current handle is successfully written then set the result using:
-        // res = WICED_BT_GATT_SUCCESS;
-        switch ( attr_handle )
-        {
-        default:
-            // The write operation was not performed for the indicated handle
-            WICED_BT_TRACE("Write Request to Invalid Handle: 0x%x\n", attr_handle);
-            res = WICED_BT_GATT_WRITE_NOT_PERMIT;
-            break;
-        }
-    }
-
     return res;
 }
 
@@ -426,56 +341,3 @@ void button_cback( void *data, uint8_t port_pin )
 	app_set_advertisement_data();
 }
 
-
-/* Handle Command Received over Transport */
-uint32_t hci_control_process_rx_cmd( uint8_t* p_data, uint32_t len )
-{
-    uint8_t  status = 0;
-    uint8_t  cmd_status = HCI_CONTROL_STATUS_SUCCESS;
-    uint16_t opcode = 0;
-    uint8_t* p_payload_data = NULL;
-
-    WICED_BT_TRACE("hci_control_process_rx_cmd : Data Length '%d'\n", len);
-
-    // At least 4 bytes are expected in WICED Header
-    if ((NULL == p_data) || (len < 4))
-    {
-        WICED_BT_TRACE("Invalid Parameters\n");
-        status = HCI_CONTROL_STATUS_INVALID_ARGS;
-    }
-    else
-    {
-        // Extract OpCode and Payload data from little-endian byte array
-        opcode = (uint16_t)( ((p_data)[0] | ((p_data)[1] << 8)) );
-        p_payload_data = &p_data[sizeof(uint16_t)*2];
-
-        // TODO: Process received HCI Command based on its Opcode
-        // (see 'hci_control_api.h' for additional details)
-        switch (opcode)
-        {
-        case HCI_CONTROL_LE_COMMAND_ADVERTISE:
-        	if(p_payload_data[0]== 0)
-        	{
-        		wiced_bt_start_advertisements( BTM_BLE_ADVERT_OFF, 0, NULL );
-        	}
-        	else
-        	{
-        		wiced_bt_start_advertisements( BTM_BLE_ADVERT_NONCONN_HIGH, 0, NULL );
-        	}
-        	break;
-        default:
-            // HCI Control Group was not handled
-            cmd_status = HCI_CONTROL_STATUS_UNKNOWN_GROUP;
-            wiced_transport_send_data(HCI_CONTROL_EVENT_COMMAND_STATUS, &cmd_status,
-sizeof(cmd_status));
-            break;
-        }
-    }
-
-    // When operating in WICED_TRANSPORT_UART_HCI_MODE or WICED_TRANSPORT_SPI,
-    // application has to free buffer in which data was received
-    wiced_transport_free_buffer( p_data );
-    p_data = NULL;
-
-    return status;
-}

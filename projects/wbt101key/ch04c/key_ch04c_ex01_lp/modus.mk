@@ -40,7 +40,7 @@ PLATFORMS_VERSION = 1.0
 
 CONFIG = Debug
 
-CY_EXAMPLE_NAME = ch04c_ex01_lp
+CY_EXAMPLE_NAME = key_ch04c_ex01_lp
 
 CY_EXAMPLE_DESCRIPTION = Template for the CYW920819EVB-02 kit that demonstrates low power.\n\nREMEMBER to set BT_DEVICE_ADDRESS = random.\n\n
 
@@ -61,7 +61,10 @@ CY_APP_SOURCE = ./app.c								\
 				./app_bt_cfg.h						\
 				./wiced_platform.h					\
 				./design.modus						\
-				./GeneratedSource/cycfg_bt.h
+				./GeneratedSource/cycfg_bt.h				\
+				./GeneratedSource/cycfg_gatt_db.h	\
+				./GeneratedSource/cycfg_gatt_db.c
+
 
 CY_APP_RESOURCES =
 
