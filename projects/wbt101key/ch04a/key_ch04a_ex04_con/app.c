@@ -150,6 +150,24 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
 		case BTM_BLE_ADVERT_STATE_CHANGED_EVT:					// Advertising State Change
 			WICED_BT_TRACE( "Advertising state = %d\r\n", p_event_data->ble_advert_state_changed );
+			switch(p_event_data->ble_advert_state_changed)
+			{
+				case BTM_BLE_ADVERT_OFF:
+					if(connection_id == 0) /* Not connected, not advertising */
+					{
+						wiced_hal_pwm_change_values(PWM0, PWM_ALWAYS_OFF, PWM_INIT);
+					}
+					else /* Connected */
+					{
+						wiced_hal_pwm_change_values(PWM0, PWM_ALWAYS_ON, PWM_INIT);
+					}
+					break;
+
+				case BTM_BLE_ADVERT_UNDIRECTED_HIGH:
+				case BTM_BLE_ADVERT_UNDIRECTED_LOW:
+					wiced_hal_pwm_change_values(PWM0, PWM_TOGGLE, PWM_INIT); /* Not connected, advertising */
+					break;
+			}
 			break;
 
 		default:
