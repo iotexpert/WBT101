@@ -141,7 +141,7 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 
 		case BTM_BLE_ADVERT_STATE_CHANGED_EVT:					// Advertising State Change
             WICED_BT_TRACE( "Advertising state = %d\r\n", p_event_data->ble_advert_state_changed );
-            /* TODO Ex 02: Set PWM to appropritae duty cycle */
+            /* TODO Ex 02: Set PWM to appropriate duty cycle */
 			break;
 
 		default:
