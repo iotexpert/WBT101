@@ -91,6 +91,10 @@ wiced_result_t app_bt_management_callback( wiced_bt_management_evt_t event, wice
 			{
 				WICED_BT_TRACE( "Bluetooth Enabled\r\n" );
 
+				/*Configure the PWM*/
+				wiced_hal_gpio_configure_pin(WICED_GPIO_PIN_LED_1, GPIO_OUTPUT_ENABLE, GPIO_PIN_OUTPUT_LOW);
+				wiced_hal_gpio_select_function(WICED_GPIO_PIN_LED_1, WICED_PWM0);
+				
 				/* Configure the button to trigger an interrupt when pressed */
 				wiced_hal_gpio_configure_pin( WICED_GPIO_PIN_BUTTON_1, ( GPIO_INPUT_ENABLE | GPIO_PULL_UP | GPIO_EN_INT_BOTH_EDGE ), GPIO_PIN_OUTPUT_HIGH );
 				wiced_hal_gpio_register_pin_for_interrupt( WICED_GPIO_PIN_BUTTON_1, button_cback, 0 );
