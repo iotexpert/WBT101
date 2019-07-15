@@ -54,10 +54,10 @@ typedef struct
     uint16_t cccdHandle;
 } charHandle_t;
 
-static const uint8_t ledUUID[] = { __UUID_CHARACTERISTIC_MODUS_LED };
+static const uint8_t ledUUID[] = { __UUID_CHARACTERISTIC_MODUS_RGBLED };
 static charHandle_t  ledChar;
 
-static const uint8_t counterUUID[] = { __UUID_CHARACTERISTIC_MODUS_LED };
+static const uint8_t counterUUID[] = { __UUID_CHARACTERISTIC_MODUS_COUNTER };
 static charHandle_t  counterChar;
 
 #define MAX_CHARS_DISCOVERED (10)
