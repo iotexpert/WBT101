@@ -1,3 +1,6 @@
+# This is a file used and owned by the ModusToolbox IDE. Users should not modify this file.
+FEATURE_VALUES=BT_DEVICE_ADDRESS,default UART,AUTO ENABLE_DEBUG,0 POWER_ESTIMATOR,no 
+DEVICE=CYW20819A1KFBG
 #
 # Copyright 2019, Cypress Semiconductor Corporation or a subsidiary of
 # Cypress Semiconductor Corporation. All Rights Reserved.
@@ -30,13 +33,13 @@
 # of such system or application assumes all risk of such use and in doing
 # so agrees to indemnify Cypress against all liability.
 #
-TOOLCHAIN = GCC
+TOOLCHAIN=GCC
 
 PLATFORMS_VERSION = 1.0
 
 CONFIG = Debug
 
-CY_EXAMPLE_NAME = ch06a_ex01_spp
+CY_EXAMPLE_NAME = ch06a_ex04_spp_mult
 
 CY_EXAMPLE_DESCRIPTION = This application demonstrates use of BR/EDR Serial Port Profile libary
 
@@ -44,7 +47,7 @@ CY_SHOW_NEW_PROJECT := true
 
 CY_VALID_PLATFORMS = CYW920819EVB-02
 
-PLATFORM = CYW920819EVB-02
+PLATFORM=CYW920819EVB-02
 
 CY_APP_DEFINES = \
   -DWICED_BT_TRACE_ENABLE
@@ -59,8 +62,7 @@ CY_MAINAPP_SWCOMP_EXT =
 
 CY_APP_SOURCE =   \
   ./spp.c \
-  ./wiced_bt_cfg.c \
-  ./readme.txt
+  ./wiced_bt_cfg.c 
 
 CY_APP_RESOURCES =
 

@@ -87,7 +87,7 @@
 
 
 #define HCI_TRACE_OVER_TRANSPORT            1   // If defined HCI traces are send over transport/WICED HCI interface
-//#define SEND_DATA_ON_INTERRUPT              1   // If defined application button causes 1Meg of data to be sent
+//#define SEND_DATA_ON_INTERRUPT            1   // If defined application button causes 1Meg of data to be sent
 //#define SEND_DATA_ON_TIMEOUT              1   // If defined application sends 4 bytes of data every second
 //#define LOOPBACK_DATA                     1   // If defined application loops back received data
 
@@ -200,6 +200,10 @@ const wiced_transport_cfg_t transport_cfg =
 };
 #endif
 
+/*Globals for ch6aex3*/
+uint8_t doCompare = 0;
+BD_ADDR address;
+
 /*******************************************************************
  * Function Prototypes
  ******************************************************************/
@@ -207,6 +211,7 @@ static wiced_bt_dev_status_t app_management_callback (wiced_bt_management_evt_t 
 static void                  app_write_eir(void);
 static int                   app_write_nvram(int nvram_id, int data_len, void *p_data);
 static int                   app_read_nvram(int nvram_id, void *p_data, int data_len);
+static void					 spp_tx_data();
 
 #if SEND_DATA_ON_INTERRUPT
 static void                  app_tx_ack_timeout(uint32_t param);
@@ -255,7 +260,7 @@ APPLICATION_START()
 
     // Use WICED_ROUTE_DEBUG_TO_WICED_UART to send formatted debug strings over the WICED
     // HCI debug interface to be parsed by ClientControl/BtSpy.
-    // Note: WICED HCI must be configured to use this - see wiced_trasnport_init(), must
+    // Note: WICED HCI must be configured to  use this - see wiced_trasnport_init(), must
     // be called with wiced_transport_cfg_t.wiced_tranport_data_handler_t callback present
     // wiced_set_debug_uart(WICED_ROUTE_DEBUG_TO_WICED_UART);
 #endif
@@ -351,6 +356,7 @@ wiced_result_t app_management_callback(wiced_bt_management_evt_t event, wiced_bt
     int                                 bytes_written, bytes_read;
     wiced_bt_power_mgmt_notification_t* p_power_mgmt_notification;
 
+
     WICED_BT_TRACE("app_management_callback %d\n", event);
 
     switch(event)
@@ -359,6 +365,18 @@ wiced_result_t app_management_callback(wiced_bt_management_evt_t event, wiced_bt
     case BTM_ENABLED_EVT:
         application_init();
         //WICED_BT_TRACE("Free mem:%d", cfa_mm_MemFreeBytes());
+
+        /* Initialize the UART */
+        wiced_hal_puart_init();
+        wiced_hal_puart_flow_off();
+        wiced_hal_puart_set_baudrate( 115200 );
+        wiced_hal_puart_enable_tx();
+        wiced_hal_puart_register_interrupt(spp_tx_data);
+        /* Set watermark level to 1 to receive interrupt up on receiving each byte */
+        wiced_hal_puart_set_watermark_level(1);
+
+        wiced_hal_puart_enable_rx();
+        wiced_hal_puart_print( "**** CYW20819 App Start **** \n\r" );
         break;
 
     case BTM_DISABLED_EVT:
@@ -370,15 +388,21 @@ wiced_result_t app_management_callback(wiced_bt_management_evt_t event, wiced_bt
         break;
 
     case BTM_USER_CONFIRMATION_REQUEST_EVT:
-        /* This application always confirms peer's attempt to pair */
-        wiced_bt_dev_confirm_req_reply (WICED_BT_SUCCESS, p_event_data->user_confirmation_request.bd_addr);
-        break;
+    	WICED_BT_TRACE("\r\n********************\r\n" );
+		WICED_BT_TRACE( "\r\nNUMERIC = %06d\r\n\n", p_event_data->user_confirmation_request.numeric_value );
+		WICED_BT_TRACE("\r\n********************\r\n\n" );
+		doCompare = 1;
+		WICED_BT_TRACE("\r\nY to accept pairing, N to reject\r\n\n" );
+		memcpy( address,p_event_data->user_confirmation_request.bd_addr , sizeof( BD_ADDR ) );
+		break;
+
 
     case BTM_PAIRING_IO_CAPABILITIES_BR_EDR_REQUEST_EVT:
         /* This application supports only Just Works pairing */
         WICED_BT_TRACE("BTM_PAIRING_IO_CAPABILITIES_REQUEST_EVT bda %B\n", p_event_data->pairing_io_capabilities_br_edr_request.bd_addr);
-        p_event_data->pairing_io_capabilities_br_edr_request.local_io_cap   = BTM_IO_CAPABILITIES_NONE;
-        p_event_data->pairing_io_capabilities_br_edr_request.auth_req       = BTM_AUTH_SINGLE_PROFILE_GENERAL_BONDING_NO;
+        p_event_data->pairing_io_capabilities_br_edr_request.local_io_cap   = BTM_IO_CAPABILITIES_DISPLAY_AND_YES_NO_INPUT;
+        p_event_data->pairing_io_capabilities_br_edr_request.auth_req       = BTM_AUTH_SINGLE_PROFILE_GENERAL_BONDING_YES;
+        p_event_data->pairing_io_capabilities_br_edr_request.is_orig = WICED_FALSE;
         break;
 
     case BTM_PAIRING_COMPLETE_EVT:
@@ -627,3 +651,26 @@ void app_trace_callback(wiced_bt_hci_trace_type_t type, uint16_t length, uint8_t
     wiced_transport_send_hci_trace(host_trans_pool, type, length, p_data);
 }
 #endif
+
+/*******************************************************************************
+* Function Name: void spp_tx_data( void *data, int length)
+********************************************************************************/
+void spp_tx_data( void *data, uint32_t length)
+{
+    uint8_t  readbyte;
+
+    if(doCompare == 1){
+    	wiced_hal_puart_read( &readbyte );
+    	if(readbyte == 'y' || readbyte =='Y'){
+    		wiced_bt_dev_confirm_req_reply( WICED_BT_SUCCESS, address );
+    		doCompare = 0;
+    	}
+
+    }
+
+    /* Read one byte from the buffer, send it and then clear the interrupt */
+    wiced_hal_puart_read( &readbyte );
+    wiced_bt_spp_send_session_data(spp_handle, (uint8_t *)&readbyte, sizeof(uint8_t));
+    wiced_hal_puart_reset_puart_interrupt();
+}
+
